@@ -2,6 +2,36 @@
 
 **First GPU run: 2026-09-23** on the university GPU PC (RTX 4070 Ti SUPER 16 GB, Windows + WSL2 + Docker Desktop). The full Gate B/E suites are still open; the results below are the first end-to-end checks.
 
+## Exact model file specs (read from the GGUF header with `zehnora/scripts/gguf-header.py`)
+`Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf`, GGUF v3, architecture `qwen35moe`, quantized by Unsloth with an importance matrix (76 calibration chunks).
+
+| Property | Value |
+|---|---|
+| Parameters | 34,660,610,688 total; 8 of 256 routed experts + 1 shared expert active per token (3B active) |
+| Layers | 40 (full attention every 4th layer, Gated DeltaNet linear attention in the others) |
+| Hidden size / expert FFN / shared-expert FFN | 2,048 / 512 / 512 |
+| Attention | 16 query heads, 2 KV heads, head dim 256 |
+| Native context | 262,144 tokens |
+| Tensor data | 22,349,466,112 bytes (20.81 GiB); average **5.158 bits per weight** (original BF16 = 16) |
+
+| Precision | Params | Share | Size | Bits/weight |
+|---|---|---|---|---|
+| Q4_K | 20.938 B | 60.4 % | 10.97 GiB | 4.50 |
+| Q5_K | 10.201 B | 29.4 % | 6.53 GiB | 5.50 |
+| Q8_0 | 2.422 B | 7.0 % | 2.40 GiB | 8.50 |
+| Q6_K | 1.074 B | 3.1 % | 0.82 GiB | 6.56 |
+| F32 | 0.026 B | 0.1 % | 0.10 GiB | 32 |
+
+| Part of the model | Params | Size | Bits/weight | Precision mix |
+|---|---|---|---|---|
+| Routed experts | 32.212 B | 18.32 GiB | 4.89 | Q4_K 65 %, Q5_K 32 %, Q6_K 3 % |
+| Attention + linear attention | 1.284 B | 1.28 GiB | 8.59 | Q8_0 |
+| Embeddings + output head | 1.017 B | 1.01 GiB | 8.50 | Q8_0 |
+| Shared expert | 0.126 B | 0.12 GiB | 8.52 | Q8_0 |
+| Norms, router, other | 0.021 B | 0.08 GiB | 32 | F32 |
+
+Runtime placement (how much of this sits in VRAM vs system RAM), memory and speed are measured on the GPU PC with `zehnora/scripts/server/model-report.sh`.
+
 ## GPU PC results (Qwen3.6-35B-A3B UD-Q4_K_XL, llama.cpp server-cuda-v0.4.1, context 65,536)
 Path: `test-model.sh` → nginx (127.0.0.1:8080) → platform API (key, credits) → LiteLLM → llama.cpp.
 
