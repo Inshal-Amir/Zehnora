@@ -18,7 +18,7 @@ Last update: 2026-09-22, development Mac (Intel i7-9750H, macOS 26.6.2). Reposit
 | **Gate A suite: 27/27** (MOCK profile) | DONE | `tests/evidence/gate-a-pytest-mock.txt` |
 | Portal (customer + admin + playground), Playwright browser E2E **12/12** | DONE (mock) | `tests/evidence/portal-e2e-mock.txt`, `evidence/portal/*.png` |
 | SDK compatibility (OpenAI SDK + LangChain ChatOpenAI incl. `bind_tools`): **10/10 mock, 10/10 local Qwen3.5-4B** | DONE (dev stand-in) | `sdk-compat-mock.txt`, `sdk-compat-dev-local-4b.txt` |
-| Server Compose (postgres, vllm, litellm, platform-api, nginx, cloudflared), Dockerfiles, nginx routing | IMPLEMENTED; `docker compose config` valid; images NOT built (Mac Docker broken) | `infra/server/` |
+| Server Compose (postgres, model [llama.cpp or vLLM], litellm, platform-api, nginx, cloudflared), Dockerfiles, nginx routing | IMPLEMENTED; `docker compose config` valid; images NOT built (Mac Docker broken) | `infra/server/` |
 | Server scripts (init-secrets, download-model, start, stop, health, bootstrap-admin, backup) | IMPLEMENTED; `bash -n` only | `scripts/server/` |
 | Gate B (real model on GPU), Gate C (public domain) | BLOCKED: GPU PC access, domain/DNS | `docs/GPU-PC-DEPLOYMENT.md` |
 

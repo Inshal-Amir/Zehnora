@@ -27,7 +27,7 @@ It runs on one GPU machine that you own and serves an open-weight model through 
 - **Credit wallet.** An administrator grants credits. Each request reserves credits before it runs and is charged for its actual usage when it finishes. Every change is written to an append-only ledger.
 - **`/v1` API** (`/v1/models`, `/v1/chat/completions`, with streaming). It works with the OpenAI SDK, LangChain and other compatible tools.
 - **Portal.** A customer dashboard with usage, keys and a playground, plus an admin console.
-- **Locked-down ingress.** Only the API is exposed to the internet, through nginx and a Cloudflare tunnel. LiteLLM and vLLM have no public route.
+- **Locked-down ingress.** Only the API is exposed to the internet, through nginx and a Cloudflare tunnel. LiteLLM and the model server have no public route.
 
 ### Zehnora Desktop
 A desktop app for Mac and Windows that uses the Zehnora API as its model.
@@ -49,7 +49,7 @@ flowchart LR
     end
     subgraph Server["GPU PC (WSL2 + Docker)"]
         T[Cloudflare tunnel] --> N[nginx] --> P[Platform API<br/>keys · wallet · usage]
-        P --> K[LiteLLM] --> V[vLLM + open-weight model]
+        P --> K[LiteLLM] --> V[llama.cpp + Qwen3.6-35B-A3B]
         P <--> D[(PostgreSQL)]
     end
     L -->|HTTPS /v1 + API key| T
@@ -57,7 +57,7 @@ flowchart LR
     B[Portal in browser] --> T
 ```
 
-A model request follows this path: API key → account → model scope → **atomic credit reservation** → LiteLLM → vLLM → streamed response → **settlement on actual usage**. The API never runs tools. Tools run only on the user's own machine, through the desktop connectors.
+A model request follows this path: API key → account → model scope → **atomic credit reservation** → LiteLLM → model server → streamed response → **settlement on actual usage**. The API never runs tools. Tools run only on the user's own machine, through the desktop connectors.
 
 The full design is in [`zehnora/docs/ARCHITECTURE.md`](zehnora/docs/ARCHITECTURE.md).
 
@@ -66,7 +66,8 @@ The full design is in [`zehnora/docs/ARCHITECTURE.md`](zehnora/docs/ARCHITECTURE
 | Layer | Technology |
 |---|---|
 | Platform API | Python 3.12, FastAPI, SQLAlchemy, Alembic, PostgreSQL 17 |
-| Model gateway | LiteLLM → vLLM (GPU) · llama.cpp for a small CPU dev model · a labelled mock model for tests |
+| Model | Qwen3.6-35B-A3B (MoE coding model, 3B active) on llama.cpp with GPU + RAM offload · vLLM as an alternative engine |
+| Model gateway | LiteLLM · a small CPU model and a labelled mock model for development |
 | Portal | React, TypeScript, Vite |
 | Desktop | Electron, a LibreChat-based chat UI and agent runtime, MongoDB |
 | Connectors | MCP servers in Python (workspace, search) and the Google Workspace MCP |
@@ -113,7 +114,7 @@ print(reply.choices[0].message.content)
 
 ## Deploying on the GPU PC
 
-The server profile (vLLM with the real model, LiteLLM, PostgreSQL, platform API, portal, nginx and tunnel) is deployed with Docker Compose on Windows + WSL2. Follow [`GPU-PC-DEPLOYMENT.md`](zehnora/docs/GPU-PC-DEPLOYMENT.md) step by step. The model weights are downloaded only on the GPU PC and never committed.
+The server profile (llama.cpp with Qwen3.6-35B-A3B, LiteLLM, PostgreSQL, platform API, portal, nginx and tunnel) is deployed with Docker Compose on Windows + WSL2. Follow [`GPU-PC-DEPLOYMENT.md`](zehnora/docs/GPU-PC-DEPLOYMENT.md) step by step. The model weights are downloaded only on the GPU PC and never committed.
 
 ## Repository layout
 

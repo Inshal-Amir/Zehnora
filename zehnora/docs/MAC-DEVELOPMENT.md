@@ -20,6 +20,7 @@ Development Mac: MacBook Pro 16" 2019, **Intel** i7-9750H, 32 GB RAM, macOS 26.6
 cd ~/Desktop/zehnora
 zehnora/scripts/mac/dev-platform.sh start mock           # platform + LiteLLM + MOCK model + portal
 zehnora/scripts/mac/dev-platform.sh start dev-local-4b   # same, with the local Qwen3.5-4B (CPU) instead of the mock
+ZEHNORA_DEV_REASONING=on zehnora/scripts/mac/dev-platform.sh start dev-local-4b   # thinking mode on, like the GPU default
 zehnora/scripts/mac/dev-platform.sh status | stop
 zehnora/scripts/mac/start-desktop.sh                     # Desktop: MongoDB + SearXNG + LibreChat + Electron
 zehnora/scripts/mac/start-desktop.sh --services-only
@@ -30,7 +31,7 @@ Ports (all 127.0.0.1): PostgreSQL 5433, mock 8101, llama-server 8092, LiteLLM 40
 - Portal: http://127.0.0.1:5173. Dev admin: `.local-dev/secrets/dev-admin-email` and `dev-admin-password`.
 - Desktop LibreChat login: `.local-dev/client/secrets/desktop-account.txt`. Its Zehnora key: `.local-dev/client/secrets/zehnora-api-key`.
 
-**Profiles are development only.** `mock` is deterministic (every reply says MOCK); `dev-local-4b` reuses the GGUF from `~/Desktop/LibreChat-Mac-Experiment` and never downloads anything. Neither certifies the GPU deployment.
+**Profiles are development only.** `mock` is deterministic (every reply says MOCK); `dev-local-4b` uses the GGUF in `.local-dev/models/` and never downloads anything. Neither certifies the GPU deployment.
 
 ## Tests (Mac)
 ```bash

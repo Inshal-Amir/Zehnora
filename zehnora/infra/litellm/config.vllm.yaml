@@ -1,0 +1,13 @@
+# SERVER PROFILE, engine "vllm": zehnora-coder -> vLLM on the GPU PC (private network only).
+# The model service must serve the name zehnora-upstream (fixed; LiteLLM only substitutes whole values).
+model_list:
+  - model_name: zehnora-coder
+    litellm_params:
+      model: hosted_vllm/zehnora-upstream
+      api_base: os.environ/MODEL_API_BASE
+      api_key: os.environ/MODEL_API_KEY
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+litellm_settings:
+  telemetry: false

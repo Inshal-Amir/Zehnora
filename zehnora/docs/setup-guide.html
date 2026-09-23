@@ -68,7 +68,7 @@
 │   └ LibreChat UI + agents   │  HTTPS    │   ▲           credits, usage)        │
 │      ├ MongoDB (chats)      │ ────────► │   │                │                 │
 │      ├ Workspace connector  │  API key  │ cloudflared        ▼                 │
-│      ├ Search connector     │           │  (tunnel)     LiteLLM ──► vLLM       │
+│      ├ Search connector     │           │  (tunnel)     LiteLLM ──► llama.cpp  │
 │      └ Google connector     │           │                │         + MODEL     │
 └─────────────────────────────┘           │            PostgreSQL                │
                                           └──────────────────────────────────────┘
@@ -206,46 +206,60 @@ CONFIG_PATH=$PWD/.local-dev/client/librechat.yaml \
 </ul>
 
 <h4>6.2 Get the code — WSL</h4>
-<pre>sudo apt-get update &amp;&amp; sudo apt-get install -y git curl openssl python3
-curl -LsSf https://astral.sh/uv/install.sh | sh
+<pre>sudo usermod -aG docker $USER            <span class="c"># let your user run docker; then close and reopen Ubuntu</span>
+docker run --rm --gpus all ubuntu nvidia-smi   <span class="c"># must show the RTX card from inside a container</span>
+sudo apt-get update &amp;&amp; sudo apt-get install -y git curl openssl python3
+curl -LsSf https://astral.sh/uv/install.sh | sh &amp;&amp; source $HOME/.local/bin/env
 cd ~ &amp;&amp; git clone https://github.com/Inshal-Amir/Zehnora.git zehnora
 cd ~/zehnora</pre>
 <p class="small">Keep it in <code>~/zehnora</code> (the Linux filesystem), not under <code>/mnt/c</code>, for speed.</p>
 
 <h4>6.3 Create the server secrets — WSL</h4>
 <pre>zehnora/scripts/server/init-secrets.sh
-nano .server-secrets/server.env     <span class="c"># set OWNER_DOMAIN and ZEHNORA_MODEL_DIR</span></pre>
+mkdir -p ~/zehnora-models
+sed -i "s#^ZEHNORA_MODEL_DIR=.*#ZEHNORA_MODEL_DIR=$HOME/zehnora-models#" .server-secrets/server.env</pre>
+<p class="small"><code>OWNER_DOMAIN</code> in <code>server.env</code> is set later, in section 7, once the domain is known.</p>
 
-<h4>6.4 Check the tool-call parser (do not guess) — WSL</h4>
-<pre>docker run --rm vllm/vllm-openai:v0.29.0 --help | grep -A6 -- '--tool-call-parser'</pre>
-<p>Put the correct value into <code>ZEHNORA_TOOL_PARSER</code> in <code>server.env</code> (<code>hermes</code> for the Qwen3-4B-Instruct baseline; the Qwen3.5 model card uses <code>qwen3_coder</code>).</p>
+<h4>6.4 The model and engine</h4>
+<p>The default is <b>Qwen3.6-35B-A3B</b> (a mixture-of-experts coding model: 35B parameters, 3B active per token; SWE-bench Verified 73.4%) served by <b>llama.cpp</b>. The 22.4 GB 4-bit file does not fit in 16 GB of VRAM, so llama.cpp keeps the attention layers on the GPU and puts the remaining experts in system RAM (<code>--fit on</code>). Thinking mode is on, with the model card's coding sampling (temperature 0.6, top-p 0.95). Clients can switch thinking off per request with <code>"chat_template_kwargs": {"enable_thinking": false}</code>.</p>
+<p class="small">For many simultaneous users, set <code>ZEHNORA_ENGINE=vllm</code> with a model that fits in VRAM (see the comments in <code>server.env</code>) and verify the tool-call parser with <code>docker run --rm vllm/vllm-openai:v0.29.0 --help | grep -A6 -- '--tool-call-parser'</code>.</p>
 
 <h4>6.5 Download the model — WSL</h4>
 <pre>zehnora/scripts/server/download-model.sh</pre>
-<p>Downloads the pinned revision to your SSD (outside Git) and writes <code>SHA256SUMS</code> and a provenance file. Takes a while: the model is about 8–10 GB.</p>
+<p>Downloads the pinned file (about 22.4 GB, resumable if interrupted) to your SSD outside Git, checks its SHA-256 against the value in <code>server.env</code>, and writes a provenance file. Needs about 30 GB free.</p>
 
 <h4>6.6 Build the portal and start everything — WSL</h4>
-<pre>cd ~/zehnora/zehnora/portal &amp;&amp; npm ci &amp;&amp; npm run build &amp;&amp; cd ~/zehnora
+<pre><span class="c"># Node 24 for building the portal (inside WSL, once)</span>
+cd ~ &amp;&amp; curl -LO https://nodejs.org/dist/v24.16.0/node-v24.16.0-linux-x64.tar.xz
+curl -LO https://nodejs.org/dist/v24.16.0/SHASUMS256.txt
+grep node-v24.16.0-linux-x64.tar.xz SHASUMS256.txt | sha256sum -c -    <span class="c"># must print OK</span>
+mkdir -p ~/.local/node &amp;&amp; tar xJf node-v24.16.0-linux-x64.tar.xz -C ~/.local/node --strip-components=1
+echo 'export PATH="$HOME/.local/node/bin:$PATH"' &gt;&gt; ~/.bashrc &amp;&amp; export PATH="$HOME/.local/node/bin:$PATH"
+rm node-v24.16.0-linux-x64.tar.xz SHASUMS256.txt
+
+cd ~/zehnora/zehnora/portal &amp;&amp; npm ci &amp;&amp; npm run build &amp;&amp; cd ~/zehnora
 zehnora/scripts/server/start.sh          <span class="c"># local only; no public access yet</span>
 zehnora/scripts/server/health.sh</pre>
-<p><code>start.sh</code> builds the images, starts PostgreSQL and vLLM (the model load takes minutes), waits for each service to become healthy, then LiteLLM, the platform API and nginx on <code>127.0.0.1:8080</code>. It prints which model is deployed and the GPU memory in use.</p>
+<p><code>start.sh</code> builds the images, starts PostgreSQL and the model (loading 22 GB takes a few minutes), waits for each service to become healthy, then LiteLLM, the platform API and nginx on <code>127.0.0.1:8080</code>. It prints which model is deployed and the GPU memory in use.</p>
 
 <h4>6.7 First administrator, model catalog, playground key — WSL</h4>
 <pre>zehnora/scripts/server/bootstrap-admin.sh admin@YOURDOMAIN
 
 docker exec zehnora-platform-api-1 python -m app.cli seed-model --alias zehnora-coder \
-  --identity "Qwen/Qwen3-4B-Instruct-2507 BF16, vLLM v0.29.0, RTX 4070 Ti SUPER" --context 4096 --max-output 1024
+  --identity "Qwen3.6-35B-A3B UD-Q4_K_XL GGUF (unsloth @ a483e9e), llama.cpp v0.4.1, RTX 4070 Ti SUPER + RAM" \
+  --context 65536 --max-output 16384 --default-output 8192
 
 docker exec zehnora-platform-api-1 python -m app.cli create-gateway-key
 nano .server-secrets/platform.env   <span class="c"># paste as ZEHNORA_PLAYGROUND_GATEWAY_KEY, set ZEHNORA_PUBLIC_API_BASE</span>
-docker compose -f zehnora/infra/server/compose.yaml --env-file .server-secrets/server.env up -d platform-api</pre>
+zehnora/scripts/server/start.sh          <span class="c"># applies the new platform.env</span></pre>
+<p class="small">Output limits are large because thinking tokens count as output: a small <code>max_tokens</code> can be used up by thinking before any answer appears.</p>
 
 <h4>6.8 Test locally before going public — WSL</h4>
 <pre>curl -s -H "Host: api.YOURDOMAIN" http://127.0.0.1:8080/v1/models      <span class="c"># expect 401 without a key</span></pre>
 <p>Then temporarily add <code>127.0.0.1 console.YOURDOMAIN api.YOURDOMAIN</code> to <code>C:\Windows\System32\drivers\etc\hosts</code>, open the console in a browser, register a customer, grant credits, create a key, and run:</p>
 <pre>ZEHNORA_BASE_URL=http://api.YOURDOMAIN:8080/v1 ZEHNORA_API_KEY=sk-... \
-  uv run --project zehnora/tests python zehnora/scripts/test-public-api.py</pre>
-<p>Remove the hosts lines afterwards.</p>
+  uv run --project zehnora/tests python zehnora/scripts/test-public-api.py --no-thinking</pre>
+<p class="small"><code>--no-thinking</code> is needed because the test uses short answer budgets. Remove the hosts lines afterwards.</p>
 </div>
 
 <div class="page">
@@ -265,7 +279,7 @@ docker compose -f zehnora/infra/server/compose.yaml --env-file .server-secrets/s
 <h4>7.1 Test from a different internet connection</h4>
 <pre>export ZEHNORA_BASE_URL=https://api.YOURDOMAIN/v1
 export ZEHNORA_API_KEY=sk-...
-uv run --project zehnora/tests python zehnora/scripts/test-public-api.py
+uv run --project zehnora/tests python zehnora/scripts/test-public-api.py --no-thinking
 <span class="c"># revoke the key in the portal, then confirm it stops working:</span>
 uv run --project zehnora/tests python zehnora/scripts/test-public-api.py --expect-revoked</pre>
 <p>Also confirm these return “not found”: <code>https://api.YOURDOMAIN/key/generate</code> and <code>https://console.YOURDOMAIN/v1/models</code>.</p>
@@ -309,8 +323,9 @@ cloudflared tunnel --url http://127.0.0.1:8300</pre>
   <tr><td><code>401 invalid API key</code></td><td>Key revoked, expired, or copied incompletely. Create a new one.</td></tr>
   <tr><td><code>503 billing database unavailable</code></td><td>PostgreSQL is down. The system refuses work rather than running untracked requests. Check <code>health.sh</code>.</td></tr>
   <tr><td><code>429</code></td><td>Too many requests at once for this demo capacity. Retry shortly.</td></tr>
-  <tr><td>vLLM will not start / out of memory</td><td>Lower <code>ZEHNORA_MAX_MODEL_LEN</code> (e.g. 4096) or <code>ZEHNORA_GPU_MEM_UTIL</code> in <code>server.env</code>, then <code>start.sh</code>.</td></tr>
-  <tr><td>Model gives text instead of using a tool</td><td>Wrong <code>ZEHNORA_TOOL_PARSER</code> for the model. Re-check section 6.4.</td></tr>
+  <tr><td>Model will not start / out of memory</td><td>See <code>docker logs zehnora-model-1</code>. Lower <code>ZEHNORA_MAX_MODEL_LEN</code> (e.g. 32768) in <code>server.env</code>, then <code>start.sh</code>. If system RAM runs out, give WSL more memory in <code>%UserProfile%\.wslconfig</code> (<code>[wsl2]</code> <code>memory=48GB</code>), run <code>wsl --shutdown</code>, restart Docker Desktop.</td></tr>
+  <tr><td>Answer is empty, <code>finish_reason</code> is <code>length</code></td><td>Thinking used the whole <code>max_tokens</code> budget. Raise <code>max_tokens</code>, or send <code>"chat_template_kwargs": {"enable_thinking": false}</code>.</td></tr>
+  <tr><td>Model gives text instead of using a tool</td><td>vLLM engine: wrong <code>ZEHNORA_TOOL_PARSER</code> (section 6.4). llama.cpp: check the model file and <code>docker logs zehnora-model-1</code>.</td></tr>
   <tr><td>Tunnel shows “down” in Cloudflare</td><td>University network may block it. Report it; do not attempt to bypass network controls.</td></tr>
   <tr><td>Desktop: “Model API: unreachable”</td><td>Wrong <code>ZEHNORA_API_BASE</code>, server stopped, or no internet. Test with <code>curl $ZEHNORA_API_BASE/models</code>.</td></tr>
   <tr><td>Assistant says a command needs approval but no window appears</td><td>The Desktop app is not running (the approval window lives in it). Start it, or use an ordinary build/test command.</td></tr>
@@ -326,7 +341,7 @@ cloudflared tunnel --url http://127.0.0.1:8300</pre>
   <tr><td>8200</td><td>Platform API</td><td>Dev Mac / GPU PC (internal)</td></tr>
   <tr><td>8300</td><td>Edge proxy (public API only)</td><td>Mac, for tunnelling practice</td></tr>
   <tr><td>4000</td><td>LiteLLM gateway</td><td>Internal only</td></tr>
-  <tr><td>8000</td><td>vLLM + model</td><td>GPU PC, internal only</td></tr>
+  <tr><td>8000</td><td>Model server (llama.cpp or vLLM)</td><td>GPU PC, internal only</td></tr>
   <tr><td>8080</td><td>nginx (behind the tunnel)</td><td>GPU PC</td></tr>
   <tr><td>3090</td><td>LibreChat (Desktop)</td><td>Client computer</td></tr>
   <tr><td>27028</td><td>MongoDB (chats)</td><td>Client computer</td></tr>

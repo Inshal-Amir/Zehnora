@@ -1,0 +1,13 @@
+# SERVER PROFILE, engine "llamacpp" (default): zehnora-coder -> llama.cpp server on the GPU PC (private network only).
+# llama-server exposes the model as zehnora-upstream (--alias); same OpenAI-compatible path as the Mac dev profile.
+model_list:
+  - model_name: zehnora-coder
+    litellm_params:
+      model: openai/zehnora-upstream
+      api_base: os.environ/MODEL_API_BASE
+      api_key: os.environ/MODEL_API_KEY
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+litellm_settings:
+  telemetry: false

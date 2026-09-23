@@ -68,7 +68,7 @@ start_llama() {
   [ -f "$SECRETS/llama-api-key" ] || (umask 077; openssl rand -hex 24 >"$SECRETS/llama-api-key")
   nohup "$LLAMA_SERVER" --model "$DEV_GGUF" --alias mac-demo-model --host 127.0.0.1 --port "$LLAMA_PORT" \
     --api-key-file "$SECRETS/llama-api-key" --ctx-size 8192 --parallel 1 --n-predict 1536 --threads 6 \
-    --jinja --reasoning off --temp 0.6 --top-k 20 --top-p 0.8 --no-webui >>"$LOGS/llama-server.log" 2>&1 &
+    --jinja --reasoning "${ZEHNORA_DEV_REASONING:-off}" --temp 0.6 --top-k 20 --top-p 0.8 --no-webui >>"$LOGS/llama-server.log" 2>&1 &
   echo $! >"$RUN/llama.pid"
   wait_http "llama-server (Qwen3.5-4B, CPU, development stand-in)" "http://127.0.0.1:$LLAMA_PORT/health" 120
 }

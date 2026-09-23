@@ -1,6 +1,6 @@
 # Zehnora on the university GPU PC (step by step)
 
-This guide deploys the **server profile**: vLLM + the real model, LiteLLM, PostgreSQL, the platform API, the portal, nginx and (last) the Cloudflare Tunnel. It is written for the known target (Ryzen 7 9700X, 64 GB RAM, RTX 4070 Ti SUPER 16 GB), but **inspect the real hardware first** (step 1).
+This guide deploys the **server profile**: the model server (llama.cpp by default, or vLLM) + the real model, LiteLLM, PostgreSQL, the platform API, the portal, nginx and (last) the Cloudflare Tunnel. It is written for the known target (Ryzen 7 9700X, 64 GB RAM, RTX 4070 Ti SUPER 16 GB), but **inspect the real hardware first** (step 1).
 
 Every command block says where it runs:
 - **PowerShell** = Windows PowerShell on the GPU PC
@@ -15,7 +15,8 @@ Every command block says where it runs:
 ## 0. What you need before starting
 - Admin rights on the PC (for installing drivers, WSL and Docker Desktop, if missing).
 - The private GitHub repository URL and a way to log in to GitHub (browser or a personal token typed at the prompt; **never put a token inside the clone URL**).
-- About 60 GB free on a fast SSD (model about 8–10 GB, images about 15 GB, database and backups).
+- About 60 GB free on a fast SSD (model about 22 GB, images about 10 GB, database and backups).
+- 64 GB system RAM recommended: the default MoE model keeps part of its experts in RAM.
 - Later, for public access: your domain name and access to its DNS (step 10).
 - The PC must stay **on, awake and online** while it hosts the API.
 
@@ -33,8 +34,10 @@ It checks Windows, RAM, disk, the NVIDIA driver (`nvidia-smi`), WSL2, Docker Des
 ## 2. Get the code (inside WSL, on the Linux filesystem)
 **WSL**:
 ```bash
+sudo usermod -aG docker $USER                      # then close and reopen the Ubuntu window
+docker run --rm --gpus all ubuntu nvidia-smi       # must show the RTX card from inside a container
 sudo apt-get update && sudo apt-get install -y git curl openssl python3
-curl -LsSf https://astral.sh/uv/install.sh | sh    # uv (for the model download)
+curl -LsSf https://astral.sh/uv/install.sh | sh && source $HOME/.local/bin/env   # uv (for the model download)
 cd ~ && git clone https://github.com/Inshal-Amir/Zehnora.git zehnora
 cd ~/zehnora
 ```
@@ -44,30 +47,36 @@ Keep the repository in `~/zehnora` (Linux filesystem), not under `/mnt/c`, for s
 **WSL**:
 ```bash
 cd ~/zehnora && zehnora/scripts/server/init-secrets.sh
-nano .server-secrets/server.env      # set OWNER_DOMAIN and ZEHNORA_MODEL_DIR (e.g. /home/<you>/zehnora-models)
+mkdir -p ~/zehnora-models
+sed -i "s#^ZEHNORA_MODEL_DIR=.*#ZEHNORA_MODEL_DIR=$HOME/zehnora-models#" .server-secrets/server.env
+# OWNER_DOMAIN is set in step 10, once the domain is known
 ```
 `.server-secrets/` is git-ignored and mode 600. Never copy secrets or databases from the Mac.
 
-## 4. Check the tool-call parser for the pinned vLLM (do not guess)
-**WSL**:
-```bash
-docker run --rm vllm/vllm-openai:v0.29.0 --help | grep -A6 -- '--tool-call-parser'
-```
-- Baseline `Qwen/Qwen3-4B-Instruct-2507`: expected parser `hermes`.
-- Challenger `Qwen/Qwen3.5-4B`: the model card uses `qwen3_coder`; also check the flag that disables image/video inputs (text-only).
-
-Put the verified value in `ZEHNORA_TOOL_PARSER` in `server.env`.
+## 4. Model and engine (defaults in `server.env`)
+- **Engine `llamacpp` (default)**: `ghcr.io/ggml-org/llama.cpp:server-cuda-v0.4.1`.
+- **Model**: `unsloth/Qwen3.6-35B-A3B-GGUF` @ `a483e9e6cbd595906af30beda3187c2663a1118c`, file `Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf` (22.4 GB, sha256 in `server.env`). This is a MoE model with 35B parameters, 3B of them active per token, and it scores 73.4% on SWE-bench Verified. The file is larger than 16 GB of VRAM, so `--fit on` keeps attention/shared layers on the GPU and puts the remaining experts in system RAM.
+- **Settings**: context 65,536, one request at a time, thinking on, and the coding sampling from the model card (temperature 0.6, top-p 0.95, top-k 20). Clients can turn thinking off per request with `"chat_template_kwargs": {"enable_thinking": false}`.
+- **Engine `vllm` (alternative, many users)**: set `ZEHNORA_ENGINE=vllm` with a model that fits in VRAM (see the comments in `server.env`) and verify the tool-call parser first: `docker run --rm vllm/vllm-openai:v0.29.0 --help | grep -A6 -- '--tool-call-parser'`.
 
 ## 5. Download the model (pinned revision, outside Git)
 **WSL**:
 ```bash
 cd ~/zehnora && zehnora/scripts/server/download-model.sh
 ```
-Uses `ZEHNORA_MODEL_REPO` + `ZEHNORA_MODEL_REVISION` (full commit sha) from `server.env`, writes `SHA256SUMS` and `ZEHNORA-PROVENANCE.txt` next to the weights. Record both in `docs/MODEL-EVALUATION.md`.
+Uses `ZEHNORA_MODEL_REPO` + `ZEHNORA_MODEL_REVISION` (full commit sha) + `ZEHNORA_MODEL_FILE` from `server.env`. The download resumes if interrupted. The file must match `ZEHNORA_MODEL_SHA256`. The script writes `SHA256SUMS` and `ZEHNORA-PROVENANCE.txt` next to the weights; record both in `docs/MODEL-EVALUATION.md`.
 
 ## 6. Build the portal
-**WSL** (Node 24 via nvm or the official tarball):
+**WSL**:
 ```bash
+# Node 24 inside WSL (once)
+cd ~ && curl -LO https://nodejs.org/dist/v24.16.0/node-v24.16.0-linux-x64.tar.xz
+curl -LO https://nodejs.org/dist/v24.16.0/SHASUMS256.txt
+grep node-v24.16.0-linux-x64.tar.xz SHASUMS256.txt | sha256sum -c -     # must print OK
+mkdir -p ~/.local/node && tar xJf node-v24.16.0-linux-x64.tar.xz -C ~/.local/node --strip-components=1
+echo 'export PATH="$HOME/.local/node/bin:$PATH"' >> ~/.bashrc && export PATH="$HOME/.local/node/bin:$PATH"
+rm node-v24.16.0-linux-x64.tar.xz SHASUMS256.txt
+
 cd ~/zehnora/zehnora/portal && npm ci && npm run build
 ```
 
@@ -77,7 +86,7 @@ cd ~/zehnora/zehnora/portal && npm ci && npm run build
 cd ~/zehnora && zehnora/scripts/server/start.sh
 zehnora/scripts/server/health.sh
 ```
-`start.sh` builds the LiteLLM and platform images, starts PostgreSQL and vLLM, waits for health (the model load takes a few minutes), then LiteLLM, the platform API and nginx (`127.0.0.1:8080` only). It prints the model deployment identity and GPU memory.
+`start.sh` builds the LiteLLM and platform images, starts PostgreSQL and the model server, waits for health (loading 22 GB takes a few minutes), then LiteLLM, the platform API and nginx (`127.0.0.1:8080` only). It prints the model deployment identity and GPU memory.
 
 ## 8. One-time platform setup
 **WSL**:
@@ -86,11 +95,12 @@ zehnora/scripts/server/health.sh
 zehnora/scripts/server/bootstrap-admin.sh admin@<OWNER_DOMAIN>
 # model catalog entry shown to customers (tested context/output limits)
 docker exec zehnora-platform-api-1 python -m app.cli seed-model --alias zehnora-coder \
-  --identity "Qwen/Qwen3-4B-Instruct-2507 @ cdbee75 BF16, vLLM v0.29.0, RTX 4070 Ti SUPER" --context 4096 --max-output 1024
+  --identity "Qwen3.6-35B-A3B UD-Q4_K_XL GGUF (unsloth @ a483e9e), llama.cpp v0.4.1, RTX 4070 Ti SUPER + RAM" \
+  --context 65536 --max-output 16384 --default-output 8192     # thinking tokens count as output
 # restricted gateway key for the portal playground -> add to .server-secrets/platform.env, then restart
 docker exec zehnora-platform-api-1 python -m app.cli create-gateway-key
 nano .server-secrets/platform.env    # ZEHNORA_PLAYGROUND_GATEWAY_KEY=<printed key>; ZEHNORA_PUBLIC_API_BASE=https://api.<OWNER_DOMAIN>/v1
-docker compose -f zehnora/infra/server/compose.yaml --env-file .server-secrets/server.env up -d platform-api
+zehnora/scripts/server/start.sh     # applies the new platform.env
 ```
 
 ## 9. Gate B: test locally BEFORE exposing anything
@@ -100,7 +110,7 @@ curl -s -H "Host: api.<OWNER_DOMAIN>" http://127.0.0.1:8080/v1/models          #
 ```
 Then in a browser on the PC, open `http://127.0.0.1:8080` with the Host header set. The simplest way is to add `127.0.0.1 console.<OWNER_DOMAIN> api.<OWNER_DOMAIN>` to `C:\Windows\System32\drivers\etc\hosts` **temporarily**. Then:
 1. Register a customer, grant credits as admin, create a key.
-2. **WSL**: `ZEHNORA_BASE_URL=http://api.<OWNER_DOMAIN>:8080/v1 ZEHNORA_API_KEY=<key> uv run --project zehnora/tests python zehnora/scripts/test-public-api.py`
+2. **WSL**: `ZEHNORA_BASE_URL=http://api.<OWNER_DOMAIN>:8080/v1 ZEHNORA_API_KEY=<key> uv run --project zehnora/tests python zehnora/scripts/test-public-api.py --no-thinking` (the test uses short answer budgets)
 3. Record the results, the GPU memory (`nvidia-smi`) and the timings in `MODEL-EVALUATION.md`. Remove the hosts entries afterwards.
 
 ## 10. Public HTTPS with a named Cloudflare Tunnel
@@ -115,7 +125,7 @@ From a phone hotspot or home network (not the university LAN), on any computer:
 ```bash
 export ZEHNORA_BASE_URL=https://api.<OWNER_DOMAIN>/v1
 export ZEHNORA_API_KEY=<customer key>
-uv run --project zehnora/tests python zehnora/scripts/test-public-api.py
+uv run --project zehnora/tests python zehnora/scripts/test-public-api.py --no-thinking
 # revoke the key in the portal, then:
 uv run --project zehnora/tests python zehnora/scripts/test-public-api.py --expect-revoked
 ```

@@ -5,6 +5,7 @@ Usage (keys come from the environment, never from source):
   export ZEHNORA_API_KEY=<customer key>
   uv run --project zehnora/tests python zehnora/scripts/test-public-api.py
   uv run --project zehnora/tests python zehnora/scripts/test-public-api.py --expect-revoked   # after revoking the key
+  ... test-public-api.py --no-thinking   # thinking models (Qwen3.6): the short max_tokens budgets below assume no thinking
 
 Checks: /v1/models, OpenAI SDK text / stream / tools / tool-result continuation,
 LangChain ChatOpenAI invoke / stream / bind_tools, OpenAI-style error for a bad key.
@@ -51,12 +52,15 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--expect-revoked", action="store_true", help="verify the key is now rejected (401)")
     ap.add_argument("--skip-langchain", action="store_true")
+    ap.add_argument("--no-thinking", action="store_true",
+                    help="send chat_template_kwargs.enable_thinking=false (Qwen thinking models)")
     args = ap.parse_args()
     base = os.environ["ZEHNORA_BASE_URL"].rstrip("/")
     key = os.environ["ZEHNORA_API_KEY"]
     if base.endswith("/chat/completions"):
         sys.exit("ZEHNORA_BASE_URL must end at /v1, without /chat/completions")
     headers = {"Authorization": f"Bearer {key}"}
+    extra = {"chat_template_kwargs": {"enable_thinking": False}} if args.no_thinking else {}
 
     if args.expect_revoked:
         def revoked():
@@ -79,14 +83,14 @@ def main() -> int:
 
     def upstream_kind():
         r = httpx.post(f"{base}/chat/completions", headers=headers, timeout=600,
-                       json={"model": MODEL, "messages": [{"role": "user", "content": "Reply with the word ready."}], "max_tokens": 16})
+                       json={"model": MODEL, "messages": [{"role": "user", "content": "Reply with the word ready."}], "max_tokens": 16, **extra})
         r.raise_for_status()
         mock = r.headers.get("x-zehnora-mock") == "true" or r.json()["choices"][0]["message"].get("content", "").startswith("MOCK")
         return f"upstream={'MOCK (development only)' if mock else 'model'} request_id={r.headers.get('x-request-id')}"
     check("identify upstream (mock vs model)", upstream_kind)
 
     def text():
-        r = client.chat.completions.create(model=MODEL, max_tokens=200, messages=[
+        r = client.chat.completions.create(model=MODEL, max_tokens=200, extra_body=extra, messages=[
             {"role": "user", "content": "Write a Python function that validates a non-empty task title. Reply with code only."}])
         content = r.choices[0].message.content or ""
         assert content.strip(), "empty content"
@@ -96,7 +100,7 @@ def main() -> int:
 
     def stream():
         parts, finish = [], None
-        for chunk in client.chat.completions.create(model=MODEL, stream=True, max_tokens=80,
+        for chunk in client.chat.completions.create(model=MODEL, stream=True, max_tokens=80, extra_body=extra,
                                                     messages=[{"role": "user", "content": "Count from 1 to 5."}]):
             if chunk.choices:
                 parts.append(chunk.choices[0].delta.content or "")
@@ -109,14 +113,14 @@ def main() -> int:
     def tools():
         msgs = [{"role": "system", "content": "Use the provided tools when they can answer the question."},
                 {"role": "user", "content": "How many tasks are in the project named alpha? Use the tool."}]
-        r = client.chat.completions.create(model=MODEL, messages=msgs, tools=TOOLS, tool_choice="auto", max_tokens=200)
+        r = client.chat.completions.create(model=MODEL, messages=msgs, tools=TOOLS, tool_choice="auto", max_tokens=200, extra_body=extra)
         tc = (r.choices[0].message.tool_calls or [None])[0]
         assert tc is not None, f"no tool call; content={r.choices[0].message.content!r}"
         args_ = json.loads(tc.function.arguments)
         assert tc.function.name == "get_task_count" and isinstance(args_.get("project"), str), (tc.function.name, args_)
         msgs += [{"role": "assistant", "content": r.choices[0].message.content, "tool_calls": [tc.model_dump()]},
                  {"role": "tool", "tool_call_id": tc.id, "content": json.dumps({"project": args_["project"], "count": 7})}]
-        final = client.chat.completions.create(model=MODEL, messages=msgs, tools=TOOLS, max_tokens=200)
+        final = client.chat.completions.create(model=MODEL, messages=msgs, tools=TOOLS, max_tokens=200, extra_body=extra)
         content = final.choices[0].message.content or ""
         assert "7" in content, f"final answer does not use the tool result: {content!r}"
         return f"call id {tc.id[:14]}…, args {args_}, final mentions 7"
@@ -124,7 +128,7 @@ def main() -> int:
 
     def stream_tools():
         name, arg_text, ids = "", "", set()
-        for chunk in client.chat.completions.create(model=MODEL, stream=True, tools=TOOLS, max_tokens=200, messages=[
+        for chunk in client.chat.completions.create(model=MODEL, stream=True, tools=TOOLS, max_tokens=200, extra_body=extra, messages=[
                 {"role": "user", "content": "Use the tool to count tasks in project beta."}]):
             for d in (chunk.choices[0].delta.tool_calls or []) if chunk.choices else []:
                 if d.id:
@@ -139,7 +143,8 @@ def main() -> int:
     if not args.skip_langchain:
         from langchain_openai import ChatOpenAI
 
-        llm = ChatOpenAI(model=MODEL, base_url=base, api_key=key, use_responses_api=False, max_retries=0, timeout=600)
+        llm = ChatOpenAI(model=MODEL, base_url=base, api_key=key, use_responses_api=False, max_retries=0, timeout=600,
+                         extra_body=extra or None)
 
         def lc_invoke():
             response = llm.invoke("Write a Python function that validates a non-empty task title.")

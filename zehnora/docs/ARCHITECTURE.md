@@ -22,7 +22,7 @@ flowchart TD
         P <--> D[(PostgreSQL zehnora_platform)]
         P --> K[LiteLLM internal]
         K <--> Q[(PostgreSQL zehnora_litellm)]
-        K <--> V[vLLM + open-weight model]
+        K <--> V[llama.cpp or vLLM + open-weight model]
     end
     L <-->|HTTPS /v1 + customer key| T
     U[External SDK / LangChain] <-->|HTTPS /v1| T
@@ -35,11 +35,11 @@ flowchart TD
 |---|---|---|
 | LibreChat + MongoDB + Electron + connectors | Mac, native processes (`scripts/mac/start-desktop.sh`) | Each client computer |
 | Platform API + portal + PostgreSQL + LiteLLM | Mac, native processes (`scripts/mac/dev-platform.sh`) | GPU PC, Docker Compose (`infra/server/compose.yaml`) |
-| Model | `mock` (labelled) or `dev-local-4b` (Qwen3.5-4B Q4 on the Mac CPU; development stand-in) | GPU PC: vLLM + official BF16 weights |
+| Model | `mock` (labelled) or `dev-local-4b` (Qwen3.5-4B Q4 on the Mac CPU; development stand-in) | GPU PC: llama.cpp + Qwen3.6-35B-A3B 4-bit GGUF, experts partly in RAM (default); vLLM engine as an alternative |
 | Public ingress | none (loopback only) | nginx + named Cloudflare Tunnel on the GPU PC |
 
 ## Request paths
-- **Model request:** SDK/LibreChat → `https://api.<domain>/v1` → nginx (only `/v1/models`, `/v1/chat/completions`) → platform API (key → account → model scope → **atomic reservation**) → LiteLLM (with the same customer key) → vLLM → streamed/JSON response → **settlement on actual usage**. There is no route from the internet to LiteLLM or vLLM.
+- **Model request:** SDK/LibreChat → `https://api.<domain>/v1` → nginx (only `/v1/models`, `/v1/chat/completions`) → platform API (key → account → model scope → **atomic reservation**) → LiteLLM (with the same customer key) → model server (llama.cpp or vLLM) → streamed/JSON response → **settlement on actual usage**. There is no route from the internet to LiteLLM or the model server.
 - **Agent action:** LibreChat sends messages + tool schemas to the model → model returns `tool_calls` → LibreChat calls the local MCP connector → result goes back → next model round, until done or bounded failure (recursion limit 25 ≈ 12 rounds; retries of an identical failing call are capped at 2 by the connectors). The public API never executes tools.
 - **Portal playground:** portal session → platform API → same admission/credit pipeline, charged to the logged-in account, using a restricted server-held gateway key that never reaches the browser.
 

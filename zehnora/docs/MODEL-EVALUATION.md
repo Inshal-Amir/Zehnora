@@ -3,15 +3,22 @@
 **No GPU evaluation has been run yet.** Gate B/E acceptance happens only on the university GPU PC with the deployed model. The results below are development measurements on the Mac and are labelled as such.
 
 ## Candidates (GPU PC, one loaded at a time)
-| | Baseline | Challenger |
+| | **Default** | Earlier baseline (vLLM engine) |
 |---|---|---|
-| Repository | `Qwen/Qwen3-4B-Instruct-2507` | `Qwen/Qwen3.5-4B` |
-| Revision (pinned) | `cdbee75f17c01a7cc42f958dc650907174af0554` | `851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a` |
-| Architecture | `Qwen3ForCausalLM` | `Qwen3_5ForConditionalGeneration` (has a vision encoder; run text-only) |
-| BF16 weights | about 8.0 GB | about 9.3 GB (incl. vision) |
-| vLLM | `vllm/vllm-openai:v0.29.0` (record image digest at pull) | same |
-| Tool parser | `hermes` (verify with `--help`) | `qwen3_coder` per model card (verify) |
-| Start config | 1 sequence, 4,096 context; raise to 8K/16K only after measuring memory | same |
+| Repository | `unsloth/Qwen3.6-35B-A3B-GGUF`, file `Qwen3.6-35B-A3B-UD-Q4_K_XL.gguf` | `Qwen/Qwen3-4B-Instruct-2507` |
+| Revision (pinned) | `a483e9e6cbd595906af30beda3187c2663a1118c` (file sha256 `707a55a8…4f4450`) | `cdbee75f17c01a7cc42f958dc650907174af0554` |
+| Architecture | MoE, 35B total / 3B active, 256 experts, hybrid Gated DeltaNet + Gated Attention | Dense 4B `Qwen3ForCausalLM` |
+| Weights | 22.4 GB (Unsloth dynamic 4-bit): attention/shared layers on the GPU, remaining experts in system RAM (`--fit on`) | about 8.0 GB BF16, all on the GPU |
+| Engine | `ghcr.io/ggml-org/llama.cpp:server-cuda-v0.4.1` (record image digest at pull) | `vllm/vllm-openai:v0.29.0` |
+| Tool calls | llama.cpp `--jinja` with the model's own chat template | `hermes` parser (verify with `--help`) |
+| Thinking | on; coding sampling from the model card: temperature 0.6, top-p 0.95, top-k 20, min-p 0; per request `chat_template_kwargs.enable_thinking=false` turns it off | n/a (instruct model) |
+| Start config | 1 sequence, 65,536 context (model supports 262,144) | 1 sequence, 4,096 context |
+| Published coding score | SWE-bench Verified 73.4% (third-party reported) | n/a |
+
+Why the default changed: the GPU PC has 16 GB VRAM and 64 GB RAM. A MoE model with only 3B active parameters runs at usable speed with its experts partly in RAM, and it is far stronger at coding than a 4B dense model. Dense 27B models (Qwen3.6/3.8-27B) do not fit in 16 GB even at 4-bit.
+
+### Mac check of the thinking path (development, NOT a GPU result)
+With `ZEHNORA_DEV_REASONING=on` (Qwen3.5-4B, llama.cpp b9960, 2026-09-23): the full platform path forwards `reasoning_content` separately from `content`, tool calls work with thinking on (3/3 tool checks), and `chat_template_kwargs.enable_thinking=false` passes through LiteLLM and the platform (answer in 0.7 s instead of 14 s). The SDK suite passes **10/10 with `--no-thinking`**; with thinking on, the three checks that use `max_tokens` 80–200 return empty content because thinking consumes the budget (expected; the server's default output limit is 8,192).
 
 To record for each run: exact revision, tokenizer and chat template source, parser, dtype, vLLM image digest, loaded VRAM (`nvidia-smi`), time to first token, output tokens/s, and pass counts per test.
 

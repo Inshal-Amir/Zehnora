@@ -8,7 +8,7 @@ RUN uv sync --frozen --no-dev
 ENV PATH=/app/.venv/bin:$PATH PRISMA_NODEENV_CACHE_DIR=/app/.prisma-nodeenv PRISMA_BINARY_CACHE_DIR=/app/.prisma-binaries
 # Generate the Prisma client for LiteLLM's own schema at build time (network needed only here).
 RUN prisma generate --schema /app/.venv/lib/python3.12/site-packages/litellm/proxy/schema.prisma
-COPY config.gpu.yaml config.mock.yaml config.dev-local-4b.yaml litellm-entrypoint.sh ./
+COPY config.llamacpp.yaml config.vllm.yaml config.mock.yaml config.dev-local-4b.yaml litellm-entrypoint.sh ./
 RUN chmod +x litellm-entrypoint.sh && useradd -r -u 10001 litellm && chown -R litellm /app
 USER litellm
 EXPOSE 4000

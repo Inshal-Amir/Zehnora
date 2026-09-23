@@ -7,4 +7,8 @@ say() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
 die() { say "ERROR: $*"; exit 1; }
 [ -f "$SECRETS/server.env" ] || die "missing $SECRETS/server.env (copy zehnora/infra/server/server.env.example and fill it in)"
 set -a; . "$SECRETS/server.env"; set +a
-dc() { docker compose --project-directory "$COMPOSE_DIR" -f "$COMPOSE_DIR/compose.yaml" --env-file "$SECRETS/server.env" "$@"; }
+ZEHNORA_ENGINE="${ZEHNORA_ENGINE:-llamacpp}"
+case "$ZEHNORA_ENGINE" in llamacpp|vllm) ;; *) die "ZEHNORA_ENGINE must be llamacpp or vllm (got: $ZEHNORA_ENGINE)" ;; esac
+MODEL_PATH="$ZEHNORA_MODEL_DIR/$ZEHNORA_MODEL_SUBDIR${ZEHNORA_MODEL_FILE:+/$ZEHNORA_MODEL_FILE}"
+dc() { docker compose --project-directory "$COMPOSE_DIR" -f "$COMPOSE_DIR/compose.yaml" -f "$COMPOSE_DIR/model.$ZEHNORA_ENGINE.yaml" \
+  --env-file "$SECRETS/server.env" "$@"; }

@@ -1,7 +1,8 @@
 # Zehnora SERVER profile (university GPU PC, Docker Desktop with WSL2 + NVIDIA GPU).
 # Start with: zehnora/scripts/server/start.sh   (never `docker compose down -v`: it deletes data)
 # Only nginx publishes a port, bound to 127.0.0.1 for the Cloudflare Tunnel connector and local tests.
-# Database, LiteLLM and vLLM have no published ports and live on the internal network.
+# Database, LiteLLM and the model have no published ports and live on the internal network.
+# The model service comes from model.<ZEHNORA_ENGINE>.yaml (llamacpp or vllm), added by scripts/server/common.sh.
 name: zehnora
 
 x-restart: &restart
@@ -34,56 +35,20 @@ services:
       interval: 5s
       retries: 30
 
-  vllm:
-    <<: *restart
-    image: vllm/vllm-openai:${VLLM_IMAGE_TAG:-v0.29.0}
-    # Model weights come from the host SSD (downloaded by scripts/server/download-model.sh), read-only.
-    volumes:
-      - ${ZEHNORA_MODEL_DIR:?set ZEHNORA_MODEL_DIR in server.env}:/models:ro
-    environment:
-      HF_HUB_OFFLINE: "1"   # never download at runtime; weights are pinned on disk
-    command: >
-      --model /models/${ZEHNORA_MODEL_SUBDIR:?set ZEHNORA_MODEL_SUBDIR}
-      --served-model-name zehnora-upstream
-      --dtype bfloat16
-      --max-model-len ${ZEHNORA_MAX_MODEL_LEN:-4096}
-      --max-num-seqs ${ZEHNORA_MAX_NUM_SEQS:-1}
-      --gpu-memory-utilization ${ZEHNORA_GPU_MEM_UTIL:-0.90}
-      --enable-auto-tool-choice
-      --tool-call-parser ${ZEHNORA_TOOL_PARSER:?set ZEHNORA_TOOL_PARSER (verify with vllm serve --help)}
-      ${ZEHNORA_VLLM_EXTRA_ARGS:-}
-      --api-key-file /run/secrets/vllm_api_key
-      --host 0.0.0.0 --port 8000
-    secrets: [vllm_api_key]
-    networks: [internal]
-    ipc: host
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8000/health || exit 1"]
-      interval: 10s
-      retries: 60
-      start_period: 120s
-
   litellm:
     <<: *restart
     build: { context: ../litellm, dockerfile: Dockerfile }
     image: zehnora/litellm:1.102.0
     depends_on:
       postgres: { condition: service_healthy }
-      vllm: { condition: service_healthy }
+      model: { condition: service_healthy }
     environment:
-      VLLM_API_BASE: http://vllm:8000/v1
+      MODEL_API_BASE: http://model:8000/v1
       LITELLM_TELEMETRY: "False"
       DISABLE_ADMIN_UI: "True"
       STORE_MODEL_IN_DB: "False"
     secrets: [litellm_master_key, vllm_api_key, pg_litellm_password]
-    command: ["/app/litellm-entrypoint.sh", "config.gpu.yaml"]
+    command: ["/app/litellm-entrypoint.sh", "config.${ZEHNORA_ENGINE:-llamacpp}.yaml"]
     networks: [internal]
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness')\""]

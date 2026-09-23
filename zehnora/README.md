@@ -10,7 +10,7 @@ Everything Zehnora-specific lives in this folder; LibreChat's upstream layout at
 | `connectors/workspace/` | Files, commands, dev servers, page inspection (MCP) |
 | `connectors/search/` | SearXNG search + safe page fetch (MCP) |
 | `connectors/google/` | Pinned Google Workspace MCP connector configuration |
-| `infra/` | LiteLLM profiles, mock model, client LibreChat config, server Compose (vLLM, nginx, tunnel) |
+| `infra/` | LiteLLM profiles, mock model, client LibreChat config, server Compose (model server, nginx, tunnel) |
 | `scripts/mac`, `scripts/server`, `scripts/windows` | Start/stop/health/deploy scripts |
 | `tests/` | End-to-end tests and evidence |
 | `brand/` | Product name, colours, strings |

@@ -1,7 +1,7 @@
 # Known limitations (honest list)
 
 ## Not yet possible / not yet tested
-- **No GPU run yet.** vLLM, the real model, the server Compose stack, nginx and the tunnel are written and validated only on paper (`docker compose config`, `bash -n`). Gates B, C, E and parts of F are open.
+- **No GPU run yet.** The model server (llama.cpp/vLLM), the real model, the server Compose stack, nginx and the tunnel are written and validated only on paper (`docker compose config`, `bash -n`). Gates B, C, E and parts of F are open.
 - **Windows not tested.** `Preflight.ps1`, `Start-Desktop.ps1`, PowerShell/CMD execution and Windows path/junction handling in the connector have not run on Windows.
 - **Google connector not connected** (needs the owner's OAuth client). No Gmail/Drive/Calendar/Docs/Sheets action has been verified.
 - **Domain/tunnel** not configured (placeholder `<OWNER_DOMAIN>`).
