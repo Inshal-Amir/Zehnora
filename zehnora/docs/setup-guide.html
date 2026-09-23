@@ -47,7 +47,8 @@
   <div class="sub" style="margin-top:14mm; font-size:11pt;">Zehnora Desktop (Mac &amp; Windows) &nbsp;·&nbsp; Zehnora API (Windows GPU PC)</div>
   <div class="meta">
     Version Demo 1 · 23 September 2026<br/>
-    Based on LibreChat v0.8.7 (commit 9e74cc0)<br/><br/>
+    Repository: github.com/Inshal-Amir/Zehnora (branch <code>main</code>)<br/>
+    Chat UI based on LibreChat v0.8.7 (MIT)<br/><br/>
     <span class="platform mac">MAC</span> <span class="platform win">WINDOWS</span> <span class="platform both">BOTH</span>
     &nbsp;tags show where each step runs
   </div>
@@ -126,6 +127,10 @@ npm run frontend  <span class="c"># builds the web interface</span></pre>
          zehnora/connectors/workspace zehnora/connectors/search zehnora/connectors/google zehnora/tests; do
   (cd $d &amp;&amp; uv sync --frozen)
 done
+<span class="c"># LiteLLM needs its database client generated once (and again after rebuilding its .venv)</span>
+(cd zehnora/infra/litellm &amp;&amp; PATH="$PWD/.venv/bin:$PATH" \
+  PRISMA_NODEENV_CACHE_DIR=../../../.local-dev/prisma-nodeenv PRISMA_BINARY_CACHE_DIR=../../../.local-dev/prisma-binaries \
+  prisma generate --schema .venv/lib/python3.12/site-packages/litellm/proxy/schema.prisma)
 <span class="c"># browser used for page checks and tests</span>
 PLAYWRIGHT_BROWSERS_PATH=$PWD/.local-dev/playwright-browsers \
   uv run --project zehnora/tests playwright install chromium</pre>
@@ -288,7 +293,7 @@ cloudflared tunnel --url http://127.0.0.1:8300</pre>
   <tr><td>Check health</td><td><code>zehnora/scripts/server/health.sh</code></td></tr>
   <tr><td>Stop (keeps all data)</td><td><code>zehnora/scripts/server/stop.sh</code></td></tr>
   <tr><td>Backup databases</td><td><code>zehnora/scripts/server/backup.sh</code> then encrypt the folder</td></tr>
-  <tr><td>Update to a new release</td><td><code>git fetch &amp;&amp; git checkout &lt;tag&gt;</code> then <code>start.sh</code></td></tr>
+  <tr><td>Update to the latest version</td><td><code>git pull</code> (branch <code>main</code>) then <code>start.sh</code></td></tr>
   <tr><td>View logs</td><td><code>docker compose -f zehnora/infra/server/compose.yaml logs -f platform-api</code></td></tr>
 </table>
 <div class="warn"><b>Never run <code>docker compose down -v</code></b> — the <code>-v</code> deletes the database volume with all accounts, credits and usage history.</div>
@@ -309,7 +314,8 @@ cloudflared tunnel --url http://127.0.0.1:8300</pre>
   <tr><td>Tunnel shows “down” in Cloudflare</td><td>University network may block it. Report it; do not attempt to bypass network controls.</td></tr>
   <tr><td>Desktop: “Model API: unreachable”</td><td>Wrong <code>ZEHNORA_API_BASE</code>, server stopped, or no internet. Test with <code>curl $ZEHNORA_API_BASE/models</code>.</td></tr>
   <tr><td>Assistant says a command needs approval but no window appears</td><td>The Desktop app is not running (the approval window lives in it). Start it, or use an ordinary build/test command.</td></tr>
-  <tr><td>Port already in use</td><td>The scripts refuse to touch processes they do not own. Stop the other program or change the port in <code>config/demo.env</code>.</td></tr>
+  <tr><td>Mac: <code>litellm did not become ready</code>, log says <i>Unable to find Prisma binaries</i></td><td>The LiteLLM environment was rebuilt without its database client. Run the <code>prisma generate</code> step from section 3.5, then start again.</td></tr>
+  <tr><td>Port already in use</td><td>The scripts refuse to touch processes they do not own. Stop the other program, or change the port at the top of <code>dev-platform.sh</code> / <code>start-desktop.sh</code>.</td></tr>
 </table>
 
 <h2>10. Reference</h2>
@@ -333,6 +339,8 @@ cloudflared tunnel --url http://127.0.0.1:8300</pre>
   <tr><th>Path</th><th>Contents</th></tr>
   <tr><td><code>.server-secrets/</code> <span class="platform win">GPU PC</span></td><td>Database passwords, gateway key, tunnel token, <code>server.env</code>. Never committed.</td></tr>
   <tr><td><code>.local-dev/</code> <span class="platform mac">MAC</span></td><td>Development database, tools, logs and secrets. Never committed.</td></tr>
+  <tr><td><code>~/Desktop/Zehnora-Workspace</code> <span class="platform both">CLIENT</span></td><td>Default folder the Desktop assistant works in (change it in the app).</td></tr>
+  <tr><td><code>~/.zehnora/</code> <span class="platform both">CLIENT</span></td><td>Chosen workspace folder and connector logs.</td></tr>
   <tr><td><code>zehnora/docs/</code></td><td>STATUS, ARCHITECTURE, API-CONTRACT, CREDITS-AND-RECOVERY, GOOGLE-SETUP, MODEL-EVALUATION, KNOWN-LIMITATIONS, DEMO-SCRIPT.</td></tr>
   <tr><td><code>zehnora/scripts/</code></td><td><code>mac/</code>, <code>windows/</code> and <code>server/</code> start, stop, health and deployment scripts.</td></tr>
 </table>

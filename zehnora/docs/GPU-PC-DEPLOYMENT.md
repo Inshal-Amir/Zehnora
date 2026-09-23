@@ -132,4 +132,4 @@ Use an owner account key with admin-granted credits (admin role does not mean fr
 - **Stop** (keeps data): `zehnora/scripts/server/stop.sh`. Never run `docker compose down -v`.
 - **Backup**: `zehnora/scripts/server/backup.sh`, then encrypt the folder (`age`/`gpg`) before copying it off the PC. Practise a restore into a separate test database first.
 - **Power**: set Windows sleep to "Never" on AC while hosting (Settings → System → Power). Docker Desktop must start after login: this is **not** an unattended boot. After a reboot, log in, wait for Docker Desktop, then run `start.sh --with-tunnel`.
-- **Updates**: `git pull` of a new **tag**, then `start.sh` (rebuilds images). Keep `server.env` and the model folder.
+- **Updates**: `git pull` on `main`, then `start.sh` (rebuilds images). Keep `server.env` and the model folder.

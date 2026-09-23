@@ -11,7 +11,7 @@ Development Mac: MacBook Pro 16" 2019, **Intel** i7-9750H, 32 GB RAM, macOS 26.6
 | Playwright Chromium | `.local-dev/playwright-browsers` |
 | Secrets (mode 600) | `.local-dev/secrets`, `.local-dev/client/secrets` |
 | LibreChat deps + UI build | `npm ci && npm run frontend` at the repo root |
-| Python envs | `uv sync` in `zehnora/platform-api`, `infra/litellm`, `infra/mock-inference`, `connectors/*`, `tests` |
+| Python envs | `uv sync` in `zehnora/platform-api`, `infra/litellm`, `infra/mock-inference`, `connectors/*`, `tests`; then `prisma generate` for LiteLLM (see the setup guide, section 3.5) |
 
 `.local-dev/` is git-ignored.
 
