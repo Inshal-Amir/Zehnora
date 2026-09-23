@@ -213,28 +213,34 @@ async def list_keys(p: Principal = Depends(current_session), db: AsyncSession = 
     return {"keys": [_key_view(k) for k in keys]}
 
 
-@router.post("/keys", status_code=201)
-async def create_key(body: KeyCreate, request: Request, p: Principal = Depends(current_session), db: AsyncSession = Depends(get_db)):
+async def issue_key(db: AsyncSession, *, user_id: uuid.UUID, body: KeyCreate, ip: str | None) -> tuple[ApiKey, str]:
+    """Create a gateway key and its platform record (shared by the portal route and the server CLI)."""
     visible = set((await db.scalars(select(ModelCatalog.alias).where(ModelCatalog.is_visible.is_(True)))).all())
     models = body.models or sorted(visible)
     if not models or not set(models) <= visible:
         raise ApiError(400, "invalid_models", "Choose models from the catalog.")
     key_id = uuid.uuid4()
     secret, token_id = await litellm_client.generate_key(
-        models=models, alias=f"zehnora-{key_id}", metadata={"zehnora_user_id": str(p.user.id), "zehnora_key_id": str(key_id)})
+        models=models, alias=f"zehnora-{key_id}", metadata={"zehnora_user_id": str(user_id), "zehnora_key_id": str(key_id)})
     try:
-        k = ApiKey(id=key_id, user_id=p.user.id, name=body.name.strip(), fingerprint=key_fingerprint(secret),
+        k = ApiKey(id=key_id, user_id=user_id, name=body.name.strip(), fingerprint=key_fingerprint(secret),
                    display_prefix=secret[:7], last4=secret[-4:], litellm_key_ref=token_id, allowed_models=models,
                    expires_at=now() + timedelta(days=body.expires_in_days) if body.expires_in_days else None)
         db.add(k)
-        db.add(AuditEvent(actor_user_id=p.user.id, action="key.create", target_type="api_key", target_id=str(key_id),
-                          details={"models": models}, ip=client_ip(request)))
+        db.add(AuditEvent(actor_user_id=user_id, action="key.create", target_type="api_key", target_id=str(key_id),
+                          details={"models": models}, ip=ip))
         await db.commit()
     except Exception:
         # Compensate: never leave an orphan gateway key behind.
         await db.rollback()
         await litellm_client.delete_key(token_id)
         raise
+    return k, secret
+
+
+@router.post("/keys", status_code=201)
+async def create_key(body: KeyCreate, request: Request, p: Principal = Depends(current_session), db: AsyncSession = Depends(get_db)):
+    k, secret = await issue_key(db, user_id=p.user.id, body=body, ip=client_ip(request))
     return {"key": _key_view(k), "secret": secret,
             "notice": "Copy this key now. It is shown once and cannot be recovered."}
 

@@ -3,6 +3,8 @@
   python -m app.cli bootstrap-admin --email admin@example.com   # password read from a prompt or --password-file
   python -m app.cli seed-model --alias zehnora-coder --identity "..." --context 4096 --max-output 1024
   python -m app.cli create-gateway-key                          # restricted LiteLLM key for the portal playground
+  python -m app.cli grant-credits --email user@example.com --credits 100 --reason "demo"
+  python -m app.cli create-key --email user@example.com --name "sdk test"   # prints the secret once
 """
 
 from __future__ import annotations
@@ -11,14 +13,16 @@ import argparse
 import asyncio
 import getpass
 import sys
+import uuid
 from pathlib import Path
 
 from sqlalchemy import select
 
-from . import litellm_client
+from . import billing, litellm_client
+from .config import get_settings
 from .db import dispose, sessionmaker
 from .models import AuditEvent, ModelCatalog, ModelRate, User, Wallet
-from .routes_platform import normalize_email
+from .routes_platform import KeyCreate, issue_key, normalize_email
 from .security import hash_password
 
 
@@ -75,6 +79,33 @@ async def create_gateway_key(models: list[str]) -> None:
     print(f"(LiteLLM token id {token_id}; store the key above as ZEHNORA_PLAYGROUND_GATEWAY_KEY in server secrets)", file=sys.stderr)
 
 
+async def _user_by_email(db, email: str) -> User:
+    user = await db.scalar(select(User).where(User.email == normalize_email(email)))
+    if user is None:
+        sys.exit(f"No account with email {email}. Register in the portal or run bootstrap-admin first.")
+    return user
+
+
+async def grant_credits(email: str, credits: float, reason: str) -> None:
+    async with sessionmaker()() as db:
+        user = await _user_by_email(db, email)
+        units = round(credits * get_settings().units_per_credit)
+        op = f"cli-grant:{uuid.uuid4()}"
+        wallet = await billing.grant(db, user_id=user.id, units=units, actor_user_id=None, reason=reason, operation_id=op)
+        db.add(AuditEvent(actor_user_id=None, action="credits.grant", target_type="user", target_id=str(user.id),
+                          details={"units": units, "reason": reason, "operation_id": op, "via": "cli"}))
+        await db.commit()
+    print(f"Granted {credits:g} credits to {user.email}; balance {wallet.balance_units / get_settings().units_per_credit:g} credits.")
+
+
+async def create_key(email: str, name: str) -> None:
+    async with sessionmaker()() as db:
+        user = await _user_by_email(db, email)
+        k, secret = await issue_key(db, user_id=user.id, body=KeyCreate(name=name), ip=None)
+    print(secret)
+    print(f"(key {k.display_prefix}...{k.last4} for {user.email}; shown once, store it safely)", file=sys.stderr)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(prog="python -m app.cli")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -92,6 +123,13 @@ def main() -> None:
     s.add_argument("--output-rate", type=int, default=2)
     g = sub.add_parser("create-gateway-key")
     g.add_argument("--models", nargs="+", default=["zehnora-coder"])
+    c = sub.add_parser("grant-credits")
+    c.add_argument("--email", required=True)
+    c.add_argument("--credits", type=float, required=True)
+    c.add_argument("--reason", default="granted from the server CLI")
+    k = sub.add_parser("create-key")
+    k.add_argument("--email", required=True)
+    k.add_argument("--name", default="cli key")
     a = ap.parse_args()
 
     async def run():
@@ -101,6 +139,10 @@ def main() -> None:
             elif a.cmd == "seed-model":
                 await seed_model(a.alias, a.identity, a.description, a.context, a.max_output, a.default_output,
                                  a.input_rate, a.output_rate)
+            elif a.cmd == "grant-credits":
+                await grant_credits(a.email, a.credits, a.reason)
+            elif a.cmd == "create-key":
+                await create_key(a.email, a.name)
             else:
                 await create_gateway_key(a.models)
         finally:
