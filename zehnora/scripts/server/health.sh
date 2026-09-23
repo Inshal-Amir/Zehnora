@@ -3,7 +3,7 @@
 . "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 fail=0
 for s in postgres model litellm platform-api nginx; do
-  st="$(docker inspect -f '{{.State.Health.Status}}' "zehnora-$s-1" 2>/dev/null || docker inspect -f '{{.State.Status}}' "zehnora-$s-1" 2>/dev/null || echo missing)"
+  st="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "zehnora-$s-1" 2>/dev/null || echo missing)"
   printf '  %-13s %s\n' "$s" "$st"; case "$st" in healthy|running) ;; *) fail=1 ;; esac
 done
 code=$(curl -s -o /dev/null -w '%{http_code}' -H "Host: api.$OWNER_DOMAIN" http://127.0.0.1:8080/v1/models); echo "  api /v1/models without key -> $code (expect 401)"; [ "$code" = 401 ] || fail=1

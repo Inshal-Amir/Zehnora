@@ -243,16 +243,9 @@ zehnora/scripts/server/health.sh</pre>
 <p><code>start.sh</code> builds the images, starts PostgreSQL and the model (loading 22 GB takes a few minutes), waits for each service to become healthy, then LiteLLM, the platform API and nginx on <code>127.0.0.1:8080</code>. It prints which model is deployed and the GPU memory in use.</p>
 
 <h4>6.7 First administrator, model catalog, playground key — WSL</h4>
-<pre>zehnora/scripts/server/bootstrap-admin.sh admin@YOURDOMAIN
-
-docker exec zehnora-platform-api-1 python -m app.cli seed-model --alias zehnora-coder \
-  --identity "Qwen3.6-35B-A3B UD-Q4_K_XL GGUF (unsloth @ a483e9e), llama.cpp v0.4.1, RTX 4070 Ti SUPER + RAM" \
-  --context 65536 --max-output 16384 --default-output 8192
-
-docker exec zehnora-platform-api-1 python -m app.cli create-gateway-key
-nano .server-secrets/platform.env   <span class="c"># paste as ZEHNORA_PLAYGROUND_GATEWAY_KEY, set ZEHNORA_PUBLIC_API_BASE</span>
-zehnora/scripts/server/start.sh          <span class="c"># applies the new platform.env</span></pre>
-<p class="small">Output limits are large because thinking tokens count as output: a small <code>max_tokens</code> can be used up by thinking before any answer appears.</p>
+<pre>zehnora/scripts/server/bootstrap-admin.sh you@example.com   <span class="c"># password prompted (12+ characters)</span>
+zehnora/scripts/server/setup-platform.sh</pre>
+<p class="small"><code>setup-platform.sh</code> records the model identity with context 65,536 and output limits 16,384 / 8,192 (thinking tokens count as output), stores the playground key and public API base in <code>platform.env</code>, and restarts the platform API. Run it again after changing <code>OWNER_DOMAIN</code>.</p>
 
 <h4>6.8 Test locally before going public — WSL</h4>
 <pre>curl -s -H "Host: api.YOURDOMAIN" http://127.0.0.1:8080/v1/models      <span class="c"># expect 401 without a key</span></pre>

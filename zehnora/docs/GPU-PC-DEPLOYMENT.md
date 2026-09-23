@@ -91,17 +91,10 @@ zehnora/scripts/server/health.sh
 ## 8. One-time platform setup
 **WSL**:
 ```bash
-# first administrator (password prompted, not logged)
-zehnora/scripts/server/bootstrap-admin.sh admin@<OWNER_DOMAIN>
-# model catalog entry shown to customers (tested context/output limits)
-docker exec zehnora-platform-api-1 python -m app.cli seed-model --alias zehnora-coder \
-  --identity "Qwen3.6-35B-A3B UD-Q4_K_XL GGUF (unsloth @ a483e9e), llama.cpp v0.4.1, RTX 4070 Ti SUPER + RAM" \
-  --context 65536 --max-output 16384 --default-output 8192     # thinking tokens count as output
-# restricted gateway key for the portal playground -> add to .server-secrets/platform.env, then restart
-docker exec zehnora-platform-api-1 python -m app.cli create-gateway-key
-nano .server-secrets/platform.env    # ZEHNORA_PLAYGROUND_GATEWAY_KEY=<printed key>; ZEHNORA_PUBLIC_API_BASE=https://api.<OWNER_DOMAIN>/v1
-zehnora/scripts/server/start.sh     # applies the new platform.env
+zehnora/scripts/server/bootstrap-admin.sh you@example.com   # first administrator; password prompted (12+ characters), not logged
+zehnora/scripts/server/setup-platform.sh                    # model catalog entry, playground gateway key, public API base
 ```
+`setup-platform.sh` records the deployed model identity (file, revision, engine, GPU) with context 65,536 and output limits 16,384 max / 8,192 default (thinking tokens count as output). It stores the playground key and `https://api.<OWNER_DOMAIN>/v1` in `.server-secrets/platform.env`, then restarts the platform API. Run it again after changing `OWNER_DOMAIN`.
 
 ## 9. Gate B: test locally BEFORE exposing anything
 **WSL**:
