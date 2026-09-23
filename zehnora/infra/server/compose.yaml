@@ -98,6 +98,33 @@ services:
     secrets: [cloudflared_token]
     networks: [edge]
 
+  guard:
+    <<: *restart
+    build: { context: ../guard, dockerfile: Dockerfile }
+    image: zehnora/guard:0.1.0
+    # Watches GPU temperature/throttling and free RAM; stops the model to cool down or shut down (scripts/server/guard.sh).
+    environment:
+      ZEHNORA_HOST_UID: ${ZEHNORA_HOST_UID:-1000}
+      ZEHNORA_HOST_GID: ${ZEHNORA_HOST_GID:-1000}
+      ZEHNORA_GUARD_INTERVAL: ${ZEHNORA_GUARD_INTERVAL:-10}
+      ZEHNORA_GUARD_COOLDOWN_C: ${ZEHNORA_GUARD_COOLDOWN_C:-80}
+      ZEHNORA_GUARD_RESUME_C: ${ZEHNORA_GUARD_RESUME_C:-70}
+      ZEHNORA_GUARD_SHUTDOWN_C: ${ZEHNORA_GUARD_SHUTDOWN_C:-87}
+      ZEHNORA_GUARD_MAX_COOLDOWN_S: ${ZEHNORA_GUARD_MAX_COOLDOWN_S:-900}
+      ZEHNORA_GUARD_MIN_RAM_MIB: ${ZEHNORA_GUARD_MIN_RAM_MIB:-1024}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${ZEHNORA_REPO_DIR:?run through scripts/server}:${ZEHNORA_REPO_DIR:?run through scripts/server}
+    command: ["${ZEHNORA_REPO_DIR}/zehnora/scripts/server/guard.sh"]
+    network_mode: none      # needs no network; talks to Docker through the socket
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
   deployer:
     <<: *restart
     build: { context: ../deployer, dockerfile: Dockerfile }

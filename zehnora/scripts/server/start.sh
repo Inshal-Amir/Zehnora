@@ -4,9 +4,17 @@
 #   start.sh --with-tunnel   also start the Cloudflare Tunnel connector (after local tests pass)
 . "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 [ -e "$MODEL_PATH" ] || die "model not downloaded ($MODEL_PATH): run download-model.sh"
+GUARD_LOCK="$REPO/.server-state/guard.lock"
+if [ -f "$GUARD_LOCK" ]; then
+  case "$(cut -d' ' -f1 "$GUARD_LOCK")" in
+    cooldown) die "the hardware guard is cooling the GPU down; it restarts the model by itself ($(cat "$GUARD_LOCK"))" ;;
+    *) die "the hardware guard shut the model down: $(cat "$GUARD_LOCK"). Check the PC, then run guard-reset.sh" ;;
+  esac
+fi
 [ -f "$REPO/zehnora/portal/dist/index.html" ] || die "portal not built: cd zehnora/portal && npm ci && npm run build"
 docker info >/dev/null 2>&1 || die "Docker is not running (start Docker Desktop with the WSL2 backend)"
 say "building images (litellm, platform-api)"; dc build
+dc up -d guard >/dev/null && say "hardware guard running (docker logs zehnora-guard-1)"
 say "starting postgres + model ($ZEHNORA_ENGINE; loading can take minutes)"; dc up -d postgres model
 wait_healthy() { local s="$1" i=0; until [ "$(docker inspect -f '{{.State.Health.Status}}' "zehnora-$s-1" 2>/dev/null)" = healthy ]; do
   i=$((i+1)); [ $i -ge 180 ] && die "$s not healthy (dc logs $s)"; sleep 5; done; say "$s healthy"; }

@@ -200,3 +200,4 @@ zehnora/**/evidence/private/
 *.safetensors
 models/
 .server-secrets/
+.server-state/
