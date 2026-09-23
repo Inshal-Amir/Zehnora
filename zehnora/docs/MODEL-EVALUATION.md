@@ -30,7 +30,30 @@
 | Shared expert | 0.126 B | 0.12 GiB | 8.52 | Q8_0 |
 | Norms, router, other | 0.021 B | 0.08 GiB | 32 | F32 |
 
-Runtime placement (how much of this sits in VRAM vs system RAM), memory and speed are measured on the GPU PC with `zehnora/scripts/server/model-report.sh`.
+## Measured placement on the GPU PC (llama.cpp v0.4.1 `--fit on`, 2026-09-23; `model-placement.sh` + `model-report.sh`)
+From llama.cpp's own load log (`-lv 4`): all 41 layers (40 blocks + output) are on the GPU; in 20 of them part of the routed-expert weights overflow to system RAM.
+
+| Part | GPU (CUDA0) | CPU / RAM |
+|---|---|---|
+| Model weights | 12,167.74 MiB | 9,146 MiB |
+| of which dense parts (attention, shared expert, output head, norms) | 2,038 MiB | 0 |
+| of which token embedding | 0 | 515 MiB (always CPU in llama.cpp) |
+| of which routed experts (18,760 MiB total) | 10,130 MiB (54 %) | 8,631 MiB (46 %) |
+| KV cache (65,536 cells, 10 full-attention layers, F16) | 1,280.00 MiB | 0 |
+| Recurrent state (Gated DeltaNet) | 62.81 MiB | 0 |
+| Compute buffers | 350.03 MiB | 72.02 MiB |
+| **llama.cpp total** | **13,860.6 MiB** | **9,218 MiB** |
+| nvidia-smi total (incl. about 273 MiB CUDA context) | 14,134 MiB of 16,376 | |
+
+The file is memory-mapped (`CPU_Mapped model buffer size = 20797.72 MiB` is the mapping of the whole file; only the 9,146 MiB placed on CPU are used from it). The model container shows 17.02 GiB RAM including that page cache. WSL gets 30,886 MiB of the PC's 64 GB. llama.cpp uses 8 CPU threads.
+
+| Benchmark (`model-report.sh`, llama.cpp timings) | Result | GPU util avg / max | GPU power avg / max | Model CPU avg |
+|---|---|---|---|---|
+| Generate 512 tokens (10-token prompt) | **55.4 tokens/s** | 30.4 % / 41 % | 56.7 W / 98.9 W | 706 % (about 7 threads) |
+| Read a 9,800-token prompt | **833.4 tokens/s** | 51.5 % / 72 % | 86.6 W / 115.8 W | 123 % |
+| Real chat requests from the log | 52–61 tokens/s generation | | | |
+
+Generation is limited by the experts read from system RAM on the CPU (7 busy threads while the GPU waits at about 30 %). llama.cpp suggests `--load-mode none` (no mmap for CPU-placed tensors) for better performance; not measured yet.
 
 ## GPU PC results (Qwen3.6-35B-A3B UD-Q4_K_XL, llama.cpp server-cuda-v0.4.1, context 65,536)
 Path: `test-model.sh` → nginx (127.0.0.1:8080) → platform API (key, credits) → LiteLLM → llama.cpp.
