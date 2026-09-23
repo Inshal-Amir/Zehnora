@@ -111,6 +111,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${ZEHNORA_REPO_DIR:?run through scripts/server}:${ZEHNORA_REPO_DIR:?run through scripts/server}
+      - ${ZEHNORA_MODEL_DIR:?set ZEHNORA_MODEL_DIR in server.env}:${ZEHNORA_MODEL_DIR:?set ZEHNORA_MODEL_DIR in server.env}:ro  # start.sh checks the model file
     command: ["${ZEHNORA_REPO_DIR}/zehnora/scripts/server/autodeploy.sh"]
     networks: [edge]        # outbound internet for git fetch
 
