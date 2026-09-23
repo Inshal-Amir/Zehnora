@@ -98,6 +98,22 @@ services:
     secrets: [cloudflared_token]
     networks: [edge]
 
+  deployer:
+    <<: *restart
+    build: { context: ../deployer, dockerfile: Dockerfile }
+    image: zehnora/deployer:0.1.0
+    profiles: [autodeploy]  # enabled by scripts/server/enable-autodeploy.sh
+    environment:
+      ZEHNORA_HOST_UID: ${ZEHNORA_HOST_UID:-1000}
+      ZEHNORA_HOST_GID: ${ZEHNORA_HOST_GID:-1000}
+      ZEHNORA_DEPLOY_INTERVAL: ${ZEHNORA_DEPLOY_INTERVAL:-300}
+    # Same absolute path as on the host, so compose bind mounts started from inside resolve to host paths.
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${ZEHNORA_REPO_DIR:?run through scripts/server}:${ZEHNORA_REPO_DIR:?run through scripts/server}
+    command: ["${ZEHNORA_REPO_DIR}/zehnora/scripts/server/autodeploy.sh"]
+    networks: [edge]        # outbound internet for git fetch
+
 secrets:
   pg_superuser_password: { file: ../../../.server-secrets/pg_superuser_password }
   pg_platform_password: { file: ../../../.server-secrets/pg_platform_password }

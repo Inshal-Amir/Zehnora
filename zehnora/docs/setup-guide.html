@@ -300,7 +300,8 @@ cloudflared tunnel --url http://127.0.0.1:8300</pre>
   <tr><td>Check health</td><td><code>zehnora/scripts/server/health.sh</code></td></tr>
   <tr><td>Stop (keeps all data)</td><td><code>zehnora/scripts/server/stop.sh</code></td></tr>
   <tr><td>Backup databases</td><td><code>zehnora/scripts/server/backup.sh</code> then encrypt the folder</td></tr>
-  <tr><td>Update to the latest version</td><td><code>git pull</code> (branch <code>main</code>) then <code>start.sh</code></td></tr>
+  <tr><td>Automatic updates (once)</td><td><code>zehnora/scripts/server/enable-autodeploy.sh</code>. It then deploys every new commit on <code>main</code> within 5 minutes. Logs: <code>docker logs -f zehnora-deployer-1</code></td></tr>
+  <tr><td>Update by hand</td><td><code>git pull</code> (branch <code>main</code>) then <code>start.sh</code></td></tr>
   <tr><td>View logs</td><td><code>docker compose -f zehnora/infra/server/compose.yaml logs -f platform-api</code></td></tr>
 </table>
 <div class="warn"><b>Never run <code>docker compose down -v</code></b> — the <code>-v</code> deletes the database volume with all accounts, credits and usage history.</div>
