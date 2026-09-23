@@ -1,0 +1,12 @@
+[PASS] GET /v1/models lists the alias (0.1s) models=['zehnora-coder']
+[PASS] identify upstream (mock vs model) (1.7s) upstream=model request_id=a39f05a9-2e97-4bde-aba3-d34a45169fdb
+[PASS] OpenAI SDK: text completion (11.5s) 302 chars, usage 29/78
+[PASS] OpenAI SDK: streaming (2.7s) 17 chunks, finish=stop
+[PASS] OpenAI SDK: automatic tool call + tool-result continuation (13.0s) call id 1qoWMaxyvWattM…, args {'project': 'alpha'}, final mentions 7
+[PASS] OpenAI SDK: streamed tool call assembly (10.3s) args {'project': 'beta'}
+[PASS] LangChain ChatOpenAI.invoke (brief 6.7 example) (23.2s) 645 chars
+[PASS] LangChain ChatOpenAI.stream (1.3s) 8 chunks
+[PASS] LangChain ChatOpenAI.bind_tools (10.0s) tool_calls={'project': 'gamma'}
+[PASS] invalid key -> 401 OpenAI-style error with request_id (0.0s) invalid_api_key
+
+10/10 checks passed

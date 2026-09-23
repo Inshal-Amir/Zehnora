@@ -1,0 +1,28 @@
+  [main] [zehnora 2026-09-22T13:22:09.021Z] app ready
+  [main] [zehnora 2026-09-22T13:22:09.066Z] approval bridge listening on 3099
+  [main] [zehnora 2026-09-22T13:22:09.704Z] splash loaded; key stored: true
+  [main] [zehnora 2026-09-22T13:22:09.791Z] services ok: true
+  [main] [zehnora 2026-09-22T13:22:09.864Z] main window created for http://127.0.0.1:3090
+[PASS] main window loads local LibreChat http://127.0.0.1:3090/
+[PASS] window title is branded 
+[PASS] LibreChat page has no Node access and no Zehnora API {"require":"undefined","process":"undefined","zehnora":"undefined"}
+[PASS] contextIsolation on, nodeIntegration off, sandbox on for every view [["http://127.0.0.1:3090/login",true,false,true],["file:///Users/macbookpro/Desktop/zehnora",true,false,true],["",true,false,true]]
+[PASS] status bar view present 
+[PASS] status bar shows workspace and model API Zehnora Desktop Workspace: /Users/macbookpro/Desktop/Zehnora-Workspace · Model API: online Change folder Account
+[PASS] status bar exposes only the narrow API ["status","chooseWorkspace","openPortal"]
+[PASS] status API reports services {"product":"Zehnora Desktop","librechat":true,"modelApi":"online","apiBase":"http://127.0.0.1:8200/v1","workspace":"/Users/macbookpro/Desktop/Zehnora-Workspace","approvalBridge":true,"keyStored":true}
+[PASS] navigation to external origin is blocked http://127.0.0.1:3090/login
+[PASS] window.open does not create an in-app window 
+[PASS] approval bridge rejects a wrong secret 
+  [main] [zehnora 2026-09-22T13:22:14.544Z] approval requested 035fc839-ecee-4818-9060-c5ce98ab1aec wc -c notes.md  # e2e Deny
+  [main] [zehnora 2026-09-22T13:22:14.550Z] approval http request closed; complete: true
+  [main] [zehnora 2026-09-22T13:22:15.361Z] approval finish 035fc839-ecee-4818-9060-c5ce98ab1aec false user denied pending: true
+  [main] [zehnora 2026-09-22T13:22:15.469Z] approval finish 035fc839-ecee-4818-9060-c5ce98ab1aec false window closed pending: false
+[PASS] approval dialog shows the command and "Deny" click returns approved=false (not the timeout) {"approved":false} after 1.0s
+  [main] [zehnora 2026-09-22T13:22:15.559Z] approval requested d51a2b37-a720-4834-860d-826cb3bc0eff wc -c notes.md  # e2e Approve once
+  [main] [zehnora 2026-09-22T13:22:15.565Z] approval http request closed; complete: true
+  [main] [zehnora 2026-09-22T13:22:16.206Z] approval finish d51a2b37-a720-4834-860d-826cb3bc0eff true user approved pending: true
+  [main] [zehnora 2026-09-22T13:22:16.316Z] approval finish d51a2b37-a720-4834-860d-826cb3bc0eff false window closed pending: false
+[PASS] approval dialog shows the command and "Approve once" click returns approved=true (not the timeout) {"approved":true} after 0.8s
+
+13/13 checks passed

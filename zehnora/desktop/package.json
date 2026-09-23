@@ -1,0 +1,39 @@
+{
+  "name": "zehnora-desktop",
+  "productName": "Zehnora Desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Zehnora Desktop: Electron shell around the local LibreChat UI with a workspace connector",
+  "main": "src/main.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist:mac": "electron-builder --mac dir",
+    "dist:win": "electron-builder --win dir"
+  },
+  "devDependencies": {
+    "electron": "44.4.3",
+    "electron-builder": "26.15.3",
+    "playwright-core": "^1.58.0"
+  },
+  "build": {
+    "appId": "app.zehnora.desktop",
+    "productName": "Zehnora Desktop",
+    "files": [
+      "src/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../brand",
+        "to": "brand"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": "dir"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+# DEVELOPMENT PROFILE "mock": zehnora-coder -> deterministic MOCK service (no real model).
+# Mock success never counts as model success (brief section 10).
+model_list:
+  - model_name: zehnora-coder
+    litellm_params:
+      model: openai/zehnora-mock
+      api_base: http://127.0.0.1:8101/v1
+      api_key: mock-no-key
+    model_info:
+      zehnora_deployment_identity: "MOCK (zehnora-mock, development only - not a model)"
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  disable_spend_logs: false
+litellm_settings:
+  telemetry: false

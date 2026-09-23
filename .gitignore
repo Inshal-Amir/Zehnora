@@ -181,21 +181,21 @@ CLAUDE.md
 .gsd
 codedb.snapshot
 
-# ---- Roshvyn additions ----
+# ---- Zehnora additions ----
 .local-dev/
-roshvyn/**/.env
-roshvyn/**/.env.*
-!roshvyn/**/.env.example
-roshvyn/**/.venv/
-roshvyn/**/node_modules/
-roshvyn/**/dist/
-roshvyn/**/__pycache__/
-roshvyn/**/.pytest_cache/
-roshvyn/**/*.sqlite3
-roshvyn/**/*.db
-roshvyn/**/logs/
-roshvyn/**/secrets/
-roshvyn/**/evidence/private/
+zehnora/**/.env
+zehnora/**/.env.*
+!zehnora/**/.env.example
+zehnora/**/.venv/
+zehnora/**/node_modules/
+zehnora/**/dist/
+zehnora/**/__pycache__/
+zehnora/**/.pytest_cache/
+zehnora/**/*.sqlite3
+zehnora/**/*.db
+zehnora/**/logs/
+zehnora/**/secrets/
+zehnora/**/evidence/private/
 *.gguf
 *.safetensors
 models/

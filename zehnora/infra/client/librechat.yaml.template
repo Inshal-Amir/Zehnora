@@ -1,0 +1,85 @@
+# Zehnora Desktop client profile for LibreChat v0.8.7.
+# Rendered by zehnora/scripts/mac/start-desktop.sh (placeholders __REPO__, __WORKSPACE_CONFIG__, ...).
+# No secrets here: the customer API key comes from ${ZEHNORA_API_KEY} in the LibreChat process
+# environment, supplied by the Electron shell / launcher (never the browser renderer).
+version: 1.3.13
+cache: true
+
+interface:
+  customWelcome: 'Zehnora Desktop: your coding assistant. Files and commands stay in your selected workspace folder.'
+  modelSelect: true
+  parameters: true
+  presets: false
+  bookmarks: true
+  multiConvo: false
+  memories: false
+  webSearch: false
+  fileSearch: false
+  runCode: false
+  agents:
+    use: true
+    create: true
+    share: false
+    public: false
+  mcpServers:
+    use: true
+    create: false
+    share: false
+    public: false
+  marketplace:
+    use: false
+
+registration:
+  socialLogins: []
+
+mcpServers:
+  zehnora-workspace:
+    type: stdio
+    command: '__REPO__/zehnora/connectors/workspace/.venv/bin/python'
+    args: ['-m', 'zehnora_workspace.server']
+    env:
+      PYTHONPATH: '__REPO__/zehnora/connectors/workspace'
+      ZEHNORA_CONNECTOR_CONFIG: '__WORKSPACE_CONFIG__'
+      ZEHNORA_CONNECTOR_DATA: '__CONNECTOR_DATA__'
+      ZEHNORA_APPROVAL_URL: '__APPROVAL_URL__'
+      ZEHNORA_APPROVAL_SECRET_FILE: '__APPROVAL_SECRET_FILE__'
+      PLAYWRIGHT_BROWSERS_PATH: '__PLAYWRIGHT_BROWSERS__'
+    description: 'Files, commands, dev servers and page checks inside the selected workspace folder'
+    startup: true
+    chatMenu: false
+    serverInstructions: false
+    initTimeout: 30000
+    timeout: 960000 # run_command allows up to 900 s for bounded dependency installs
+  zehnora-search:
+    type: stdio
+    command: '__REPO__/zehnora/connectors/search/.venv/bin/python'
+    args: ['-m', 'zehnora_search.server']
+    env:
+      PYTHONPATH: '__REPO__/zehnora/connectors/search'
+      ZEHNORA_SEARXNG_URL: 'http://127.0.0.1:8888'
+      ZEHNORA_SEARCH_LOG: '__CONNECTOR_DATA__/search.jsonl'
+    description: 'Web search (SearXNG) and public page reading; needs internet'
+    startup: true
+    chatMenu: false
+    serverInstructions: false
+    initTimeout: 30000
+    timeout: 60000
+
+endpoints:
+  agents:
+    # LangGraph steps (model step + tool step per round): 25 ~ 12 tool rounds (standard mode);
+    # agents may be raised to 81 (~40 rounds) for the extended full-project mode.
+    recursionLimit: 25
+    maxRecursionLimit: 81
+    disableBuilder: false
+    capabilities: ['tools']
+  custom:
+    - name: 'Zehnora'
+      apiKey: '${ZEHNORA_API_KEY}'
+      baseURL: '${ZEHNORA_API_BASE}'
+      models:
+        default: ['zehnora-coder']
+        fetch: false
+      titleConvo: false
+      summarize: false
+      modelDisplayLabel: 'Zehnora'

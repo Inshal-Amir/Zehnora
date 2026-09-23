@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Zehnora Setup &amp; Deployment Guide</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm 16mm 14mm; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; color: #1d1b29; font-size: 10.5pt; line-height: 1.45; margin: 0; }
+  h1 { font-size: 24pt; color: #5b4bdb; margin: 0 0 4pt; }
+  h2 { font-size: 15pt; color: #4535c4; margin: 20pt 0 6pt; border-bottom: 1.5px solid #e3e1ee; padding-bottom: 3pt; page-break-after: avoid; }
+  h3 { font-size: 12pt; margin: 13pt 0 4pt; page-break-after: avoid; }
+  h4 { font-size: 10.5pt; margin: 10pt 0 3pt; color: #4535c4; page-break-after: avoid; }
+  p, li { margin: 4pt 0; }
+  ul, ol { margin: 4pt 0 4pt 16pt; padding: 0; }
+  code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 9pt; background: #f2f1f8; padding: 1px 3px; border-radius: 3px; }
+  pre { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 8.6pt; background: #1c1b27; color: #ecebf5; padding: 7pt 9pt;
+        border-radius: 5px; white-space: pre-wrap; word-break: break-word; margin: 5pt 0; page-break-inside: avoid; }
+  pre .c { color: #9c98b8; }
+  table { width: 100%; border-collapse: collapse; margin: 6pt 0; font-size: 9.2pt; page-break-inside: avoid; }
+  th, td { border: 1px solid #e3e1ee; padding: 4pt 6pt; text-align: left; vertical-align: top; }
+  th { background: #f6f5fb; }
+  .note, .warn, .ok { padding: 6pt 9pt; border-radius: 5px; margin: 6pt 0; page-break-inside: avoid; }
+  .note { background: #f1efff; border-left: 3px solid #5b4bdb; }
+  .warn { background: #fff5e8; border-left: 3px solid #b7791f; }
+  .ok { background: #eafaf6; border-left: 3px solid #12b5a6; }
+  .page { page-break-before: always; }
+  .cover { text-align: center; padding-top: 55mm; }
+  .cover h1 { font-size: 34pt; }
+  .cover .sub { font-size: 13pt; color: #6b6880; margin-top: 6pt; }
+  .cover .meta { margin-top: 30mm; font-size: 10pt; color: #6b6880; }
+  .platform { display: inline-block; font-size: 8pt; font-weight: 700; padding: 1px 6px; border-radius: 99px; vertical-align: middle; }
+  .mac { background: #e6f0ff; color: #1b4f9c; }
+  .win { background: #eaf7ea; color: #1f6b2c; }
+  .both { background: #f1efff; color: #4535c4; }
+  .toc li { margin: 2pt 0; }
+  .small { font-size: 9pt; color: #6b6880; }
+  .diagram { font-family: "SF Mono", Menlo, monospace; font-size: 8.2pt; background: #f6f5fb; border: 1px solid #e3e1ee;
+             border-radius: 5px; padding: 8pt; white-space: pre; line-height: 1.25; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>Zehnora</h1>
+  <div class="sub">Setup &amp; Deployment Guide<br/>From cloning the repository to a public API</div>
+  <div class="sub" style="margin-top:14mm; font-size:11pt;">Zehnora Desktop (Mac &amp; Windows) &nbsp;·&nbsp; Zehnora API (Windows GPU PC)</div>
+  <div class="meta">
+    Version Demo 1 · 23 September 2026<br/>
+    Based on LibreChat v0.8.7 (commit 9e74cc0)<br/><br/>
+    <span class="platform mac">MAC</span> <span class="platform win">WINDOWS</span> <span class="platform both">BOTH</span>
+    &nbsp;tags show where each step runs
+  </div>
+</div>
+
+<div class="page">
+<h2>1. What you are building</h2>
+<p>Zehnora is two connected products that share one repository:</p>
+<ul>
+  <li><b>Zehnora API</b> — a developer platform: sign-up, administrator-granted credits, API keys, usage reporting, and an OpenAI-compatible model API. It runs on the university <b>GPU PC</b>.</li>
+  <li><b>Zehnora Desktop</b> — a branded chat app (LibreChat inside an Electron window) that works on files, runs commands, searches the web and connects to Google Workspace. It runs on each <b>client computer</b> (your Mac or a Windows PC).</li>
+</ul>
+
+<div class="diagram">CLIENT COMPUTER (Mac or Windows)          UNIVERSITY GPU PC (Windows + WSL2 + Docker)
+┌─────────────────────────────┐           ┌──────────────────────────────────────┐
+│ Zehnora Desktop (Electron)  │           │  nginx  ──►  Platform API (keys,     │
+│   └ LibreChat UI + agents   │  HTTPS    │   ▲           credits, usage)        │
+│      ├ MongoDB (chats)      │ ────────► │   │                │                 │
+│      ├ Workspace connector  │  API key  │ cloudflared        ▼                 │
+│      ├ Search connector     │           │  (tunnel)     LiteLLM ──► vLLM       │
+│      └ Google connector     │           │                │         + MODEL     │
+└─────────────────────────────┘           │            PostgreSQL                │
+                                          └──────────────────────────────────────┘
+Developers anywhere ──HTTPS + API key──►  https://api.YOURDOMAIN/v1</div>
+
+<h3>Golden rules</h3>
+<ul>
+  <li>The <b>model is downloaded only on the GPU PC</b>, never on the Mac.</li>
+  <li>The Mac is for development and for the Desktop app; it may use a small stand-in model for testing.</li>
+  <li>Secrets (passwords, API keys, tokens) live in files with owner-only permissions and are never committed to Git.</li>
+</ul>
+
+<h2>2. What you need before you start</h2>
+<table>
+  <tr><th>Item</th><th>Where</th><th>Notes</th></tr>
+  <tr><td>Private GitHub repository</td><td>Both</td><td>Holds the code. Model files and databases are never stored in Git.</td></tr>
+  <tr><td>Git, Node.js 24.16, uv (Python), MongoDB Community</td><td>Client computer</td><td>Installed in section 3/5.</td></tr>
+  <tr><td>Windows 10/11 + NVIDIA GPU + WSL2 + Docker Desktop</td><td>GPU PC</td><td>16 GB VRAM target (RTX 4070 Ti SUPER).</td></tr>
+  <tr><td>About 60 GB free disk</td><td>GPU PC</td><td>Model ~10 GB, container images ~15 GB, database + backups.</td></tr>
+  <tr><td>A domain name + access to its DNS</td><td>For public access</td><td>Used as <code>api.YOURDOMAIN</code> and <code>console.YOURDOMAIN</code>.</td></tr>
+  <tr><td>Cloudflare account (free)</td><td>For public access</td><td>Runs the named tunnel; no router ports are opened.</td></tr>
+  <tr><td>Google Cloud OAuth client (optional)</td><td>Client computer</td><td>Only for Gmail/Drive/Calendar/Docs/Sheets features.</td></tr>
+</table>
+
+<h2>3. <span class="platform mac">MAC</span> Set up a client computer (Mac)</h2>
+<h4>3.1 Install the basic tools</h4>
+<pre><span class="c"># Xcode command line tools (git, compilers)</span>
+xcode-select --install
+<span class="c"># uv = Python version and environment manager</span>
+curl -LsSf https://astral.sh/uv/install.sh | sh
+<span class="c"># MongoDB Community Server (database for chats), via Homebrew</span>
+brew tap mongodb/brew &amp;&amp; brew install mongodb-community</pre>
+
+<h4>3.2 Clone the repository</h4>
+<pre>cd ~/Desktop
+git clone https://github.com/Inshal-Amir/Zehnora.git zehnora
+cd zehnora</pre>
+
+<h4>3.3 Install Node.js 24.16.0 inside the project</h4>
+<p class="small">The project uses its own Node so your system Node stays untouched.</p>
+<pre>mkdir -p .local-dev/tools &amp;&amp; cd .local-dev/tools
+curl -LO https://nodejs.org/dist/v24.16.0/node-v24.16.0-darwin-x64.tar.gz
+curl -LO https://nodejs.org/dist/v24.16.0/SHASUMS256.txt
+grep node-v24.16.0-darwin-x64.tar.gz SHASUMS256.txt | shasum -a 256 -c   <span class="c"># must print OK</span>
+tar xzf node-v24.16.0-darwin-x64.tar.gz &amp;&amp; rm node-v24.16.0-darwin-x64.tar.gz
+export PATH="$PWD/node-v24.16.0-darwin-x64/bin:$PATH" &amp;&amp; node -v
+cd ~/Desktop/zehnora</pre>
+<p class="small">On an Apple Silicon Mac use <code>node-v24.16.0-darwin-arm64.tar.gz</code> instead.</p>
+
+<h4>3.4 Build LibreChat (the chat interface)</h4>
+<pre>npm ci            <span class="c"># installs dependencies (several minutes)</span>
+npm run frontend  <span class="c"># builds the web interface</span></pre>
+
+<h4>3.5 Create the Python environments</h4>
+<pre>for d in zehnora/platform-api zehnora/infra/litellm zehnora/infra/mock-inference \
+         zehnora/connectors/workspace zehnora/connectors/search zehnora/connectors/google zehnora/tests; do
+  (cd $d &amp;&amp; uv sync --frozen)
+done
+<span class="c"># browser used for page checks and tests</span>
+PLAYWRIGHT_BROWSERS_PATH=$PWD/.local-dev/playwright-browsers \
+  uv run --project zehnora/tests playwright install chromium</pre>
+
+<h4>3.6 Install the Electron shell</h4>
+<pre>cd zehnora/desktop &amp;&amp; npm install &amp;&amp; node node_modules/electron/install.js &amp;&amp; cd ../..</pre>
+</div>
+
+<div class="page">
+<h2>4. <span class="platform mac">MAC</span> Optional: run the platform locally for development</h2>
+<p>You only need this if you want the whole API platform on the Mac (useful before the GPU PC is ready). If your GPU PC is already serving, skip to section 5 and point the Desktop app at it.</p>
+
+<h4>4.1 Local database and services</h4>
+<p>The development stack uses a portable PostgreSQL inside the project folder, then starts everything:</p>
+<pre>zehnora/scripts/mac/dev-platform.sh start mock           <span class="c"># fake model: instant, replies labelled MOCK</span>
+zehnora/scripts/mac/dev-platform.sh start dev-local-4b   <span class="c"># small real model on the CPU (slow)</span>
+zehnora/scripts/mac/dev-platform.sh status
+zehnora/scripts/mac/dev-platform.sh stop</pre>
+<div class="note"><b>What starts:</b> PostgreSQL (5433), the model upstream, LiteLLM gateway (4000), the platform API (8200) and the portal (5173). Everything listens on <code>127.0.0.1</code>, meaning this Mac only.</div>
+
+<h4>4.2 Create the first administrator and the model entry</h4>
+<pre>cd zehnora/platform-api
+uv run python -m app.cli bootstrap-admin --email admin@example.com     <span class="c"># asks for a password</span>
+uv run python -m app.cli create-gateway-key                            <span class="c"># prints a key</span>
+<span class="c"># paste that key into zehnora/platform-api/.env as ZEHNORA_PLAYGROUND_GATEWAY_KEY, then restart the API</span></pre>
+<p>Open <b>http://127.0.0.1:5173</b>, log in as the admin, and you can create customers, grant credits and issue API keys.</p>
+
+<h2>5. <span class="platform both">BOTH</span> Run Zehnora Desktop</h2>
+<h4>5.1 Give the app an API key</h4>
+<p>In the portal (your own server, or the GPU PC once deployed): <b>API keys → Create key</b>. Copy the key; it is shown once.</p>
+
+<h4>5.2 Start it <span class="platform mac">MAC</span></h4>
+<pre><span class="c"># store the key for the app (owner-only file)</span>
+mkdir -p .local-dev/client/secrets &amp;&amp; chmod 700 .local-dev/client/secrets
+printf '%s' 'sk-YOUR-KEY' &gt; .local-dev/client/secrets/zehnora-api-key
+chmod 600 .local-dev/client/secrets/zehnora-api-key
+
+<span class="c"># point it at your server (leave out to use a local platform)</span>
+export ZEHNORA_API_BASE=https://api.YOURDOMAIN/v1
+zehnora/scripts/mac/start-desktop.sh</pre>
+
+<h4>5.3 Start it <span class="platform win">WINDOWS</span></h4>
+<pre>powershell -ExecutionPolicy Bypass -File zehnora\scripts\windows\Start-Desktop.ps1</pre>
+<p class="small">Prerequisites on Windows: Git, Node 24.16.0, uv, MongoDB Community (<code>mongod.exe</code> on PATH), the same <code>npm ci</code> / <code>npm run frontend</code> / <code>uv sync</code> steps as sections 3.4–3.6. Put the API key in <code>%APPDATA%\Zehnora\secrets\zehnora-api-key</code>, or paste it in the app's first-run window.</p>
+
+<h4>5.4 Create the local chat account (first run only)</h4>
+<p class="small">The Desktop chat keeps its own local account, separate from the portal account.</p>
+<pre><span class="c"># Mac (from the repository root, with the services running)</span>
+MONGO_URI=mongodb://127.0.0.1:27028/ZehnoraDesktop \
+CONFIG_PATH=$PWD/.local-dev/client/librechat.yaml \
+.local-dev/tools/node-v24.16.0-darwin-x64/bin/node config/create-user.js you@example.com "Your Name" you --email-verified=true</pre>
+
+<h4>5.5 First use</h4>
+<ol>
+  <li>The top bar shows your <b>workspace folder</b> and <b>Model API: online</b>. Use <b>Change folder</b> to pick which folder the assistant may touch.</li>
+  <li>Log in with the local account, pick the <b>Zehnora Coder</b> agent, and ask for something, for example: <i>“Create a folder demo-notes with a README.md explaining Zehnora, then list it.”</i></li>
+  <li>Normal build and test commands (npm, python, pytest…) run automatically. Anything else shows an <b>approval window</b> with the exact command and Deny / Approve once.</li>
+</ol>
+<div class="warn"><b>Safety:</b> the assistant can only touch the selected workspace folder. Approved commands run with your user permissions, so read them before approving. This is not a full sandbox.</div>
+</div>
+
+<div class="page">
+<h2>6. <span class="platform win">WINDOWS</span> Deploy the server on the GPU PC</h2>
+<p>This is where the real model lives. Every block says whether it is <b>PowerShell</b> (Windows) or <b>WSL</b> (the Ubuntu terminal).</p>
+
+<h4>6.1 Check the machine — PowerShell</h4>
+<pre>powershell -ExecutionPolicy Bypass -File zehnora\scripts\windows\Preflight.ps1 -GpuContainerTest</pre>
+<p>It checks Windows, RAM, disk, the NVIDIA driver, WSL2, Docker and port 8080, and writes <code>preflight-result.json</code>. Fix anything marked CHECK:</p>
+<ul>
+  <li><b>NVIDIA driver</b>: install the latest Windows driver. Never install Linux display drivers inside WSL — WSL uses the Windows driver.</li>
+  <li><b>WSL2</b>: <code>wsl --install -d Ubuntu-24.04</code> in an admin PowerShell, then reboot.</li>
+  <li><b>Docker Desktop</b>: install, then enable <i>Use the WSL 2 based engine</i> and WSL integration for Ubuntu.</li>
+</ul>
+
+<h4>6.2 Get the code — WSL</h4>
+<pre>sudo apt-get update &amp;&amp; sudo apt-get install -y git curl openssl python3
+curl -LsSf https://astral.sh/uv/install.sh | sh
+cd ~ &amp;&amp; git clone https://github.com/Inshal-Amir/Zehnora.git zehnora
+cd ~/zehnora</pre>
+<p class="small">Keep it in <code>~/zehnora</code> (the Linux filesystem), not under <code>/mnt/c</code>, for speed.</p>
+
+<h4>6.3 Create the server secrets — WSL</h4>
+<pre>zehnora/scripts/server/init-secrets.sh
+nano .server-secrets/server.env     <span class="c"># set OWNER_DOMAIN and ZEHNORA_MODEL_DIR</span></pre>
+
+<h4>6.4 Check the tool-call parser (do not guess) — WSL</h4>
+<pre>docker run --rm vllm/vllm-openai:v0.29.0 --help | grep -A6 -- '--tool-call-parser'</pre>
+<p>Put the correct value into <code>ZEHNORA_TOOL_PARSER</code> in <code>server.env</code> (<code>hermes</code> for the Qwen3-4B-Instruct baseline; the Qwen3.5 model card uses <code>qwen3_coder</code>).</p>
+
+<h4>6.5 Download the model — WSL</h4>
+<pre>zehnora/scripts/server/download-model.sh</pre>
+<p>Downloads the pinned revision to your SSD (outside Git) and writes <code>SHA256SUMS</code> and a provenance file. Takes a while: the model is about 8–10 GB.</p>
+
+<h4>6.6 Build the portal and start everything — WSL</h4>
+<pre>cd ~/zehnora/zehnora/portal &amp;&amp; npm ci &amp;&amp; npm run build &amp;&amp; cd ~/zehnora
+zehnora/scripts/server/start.sh          <span class="c"># local only; no public access yet</span>
+zehnora/scripts/server/health.sh</pre>
+<p><code>start.sh</code> builds the images, starts PostgreSQL and vLLM (the model load takes minutes), waits for each service to become healthy, then LiteLLM, the platform API and nginx on <code>127.0.0.1:8080</code>. It prints which model is deployed and the GPU memory in use.</p>
+
+<h4>6.7 First administrator, model catalog, playground key — WSL</h4>
+<pre>zehnora/scripts/server/bootstrap-admin.sh admin@YOURDOMAIN
+
+docker exec zehnora-platform-api-1 python -m app.cli seed-model --alias zehnora-coder \
+  --identity "Qwen/Qwen3-4B-Instruct-2507 BF16, vLLM v0.29.0, RTX 4070 Ti SUPER" --context 4096 --max-output 1024
+
+docker exec zehnora-platform-api-1 python -m app.cli create-gateway-key
+nano .server-secrets/platform.env   <span class="c"># paste as ZEHNORA_PLAYGROUND_GATEWAY_KEY, set ZEHNORA_PUBLIC_API_BASE</span>
+docker compose -f zehnora/infra/server/compose.yaml --env-file .server-secrets/server.env up -d platform-api</pre>
+
+<h4>6.8 Test locally before going public — WSL</h4>
+<pre>curl -s -H "Host: api.YOURDOMAIN" http://127.0.0.1:8080/v1/models      <span class="c"># expect 401 without a key</span></pre>
+<p>Then temporarily add <code>127.0.0.1 console.YOURDOMAIN api.YOURDOMAIN</code> to <code>C:\Windows\System32\drivers\etc\hosts</code>, open the console in a browser, register a customer, grant credits, create a key, and run:</p>
+<pre>ZEHNORA_BASE_URL=http://api.YOURDOMAIN:8080/v1 ZEHNORA_API_KEY=sk-... \
+  uv run --project zehnora/tests python zehnora/scripts/test-public-api.py</pre>
+<p>Remove the hosts lines afterwards.</p>
+</div>
+
+<div class="page">
+<h2>7. Put it on the internet (Cloudflare Tunnel)</h2>
+<p>A tunnel makes an <b>outgoing</b> connection from the PC to Cloudflare, so you do not open any port on the university router or firewall.</p>
+<ol>
+  <li>Add your domain to Cloudflare (change the nameservers at your registrar). Do not delete existing DNS records you rely on.</li>
+  <li>Cloudflare dashboard → <b>Zero Trust → Networks → Tunnels → Create a tunnel</b> (type: cloudflared). Copy the tunnel <b>token</b>.</li>
+  <li><b>WSL:</b> paste the token into <code>.server-secrets/cloudflared_token</code>.</li>
+  <li>In the tunnel's <b>Public hostnames</b>, add two entries, both pointing to <code>http://nginx:8080</code>:
+    <ul><li><code>api.YOURDOMAIN</code> — the model API for developers</li>
+        <li><code>console.YOURDOMAIN</code> — the web portal</li></ul></li>
+  <li><b>WSL:</b> <code>zehnora/scripts/server/start.sh --with-tunnel</code></li>
+</ol>
+<div class="warn"><b>Do not</b> put Cloudflare Access (the browser login page) in front of <code>api.</code> — SDK clients cannot log in through a web page, and every request would fail.</div>
+
+<h4>7.1 Test from a different internet connection</h4>
+<pre>export ZEHNORA_BASE_URL=https://api.YOURDOMAIN/v1
+export ZEHNORA_API_KEY=sk-...
+uv run --project zehnora/tests python zehnora/scripts/test-public-api.py
+<span class="c"># revoke the key in the portal, then confirm it stops working:</span>
+uv run --project zehnora/tests python zehnora/scripts/test-public-api.py --expect-revoked</pre>
+<p>Also confirm these return “not found”: <code>https://api.YOURDOMAIN/key/generate</code> and <code>https://console.YOURDOMAIN/v1/models</code>.</p>
+
+<h4>7.2 What a developer now uses</h4>
+<pre>from langchain_openai import ChatOpenAI
+llm = ChatOpenAI(model="zehnora-coder",
+                 base_url="https://api.YOURDOMAIN/v1",
+                 api_key="sk-...", use_responses_api=False)
+print(llm.invoke("Write a Python function that validates a task title.").content)</pre>
+<p class="small">The same key works with the OpenAI SDK and plain curl. The base URL always ends at <code>/v1</code> — never add <code>/chat/completions</code> to it.</p>
+
+<h4>7.3 Testing without a domain (temporary)</h4>
+<p>To practise on a Mac or before the domain is ready, a quick tunnel gives a random temporary address:</p>
+<pre><span class="c"># terminal 1: publish ONLY the model API (blocks the portal and admin routes)</span>
+uv run --project zehnora/platform-api python zehnora/infra/edge-proxy.py --host 127.0.0.1
+<span class="c"># terminal 2: temporary public HTTPS address</span>
+cloudflared tunnel --url http://127.0.0.1:8300</pre>
+<p>Use the printed <code>https://….trycloudflare.com/v1</code> as the base URL. Press Ctrl+C to take it offline. This is for learning only: the address changes each time and your laptop is doing the serving.</p>
+
+<h2>8. Daily operations <span class="platform win">WINDOWS GPU PC</span></h2>
+<table>
+  <tr><th>Task</th><th>Command (WSL)</th></tr>
+  <tr><td>Start everything</td><td><code>zehnora/scripts/server/start.sh --with-tunnel</code></td></tr>
+  <tr><td>Check health</td><td><code>zehnora/scripts/server/health.sh</code></td></tr>
+  <tr><td>Stop (keeps all data)</td><td><code>zehnora/scripts/server/stop.sh</code></td></tr>
+  <tr><td>Backup databases</td><td><code>zehnora/scripts/server/backup.sh</code> then encrypt the folder</td></tr>
+  <tr><td>Update to a new release</td><td><code>git fetch &amp;&amp; git checkout &lt;tag&gt;</code> then <code>start.sh</code></td></tr>
+  <tr><td>View logs</td><td><code>docker compose -f zehnora/infra/server/compose.yaml logs -f platform-api</code></td></tr>
+</table>
+<div class="warn"><b>Never run <code>docker compose down -v</code></b> — the <code>-v</code> deletes the database volume with all accounts, credits and usage history.</div>
+<p><b>Keep it available:</b> set Windows sleep to “Never” while hosting, and remember that after a reboot someone must log in so Docker Desktop starts, then run <code>start.sh --with-tunnel</code>. This is not an unattended server.</p>
+</div>
+
+<div class="page">
+<h2>9. Troubleshooting</h2>
+<table>
+  <tr><th>Symptom</th><th>Cause and fix</th></tr>
+  <tr><td>Portal login fails</td><td>The portal and the Desktop app have separate accounts. Use the portal account. After 5 wrong passwords an email is blocked for 15 minutes.</td></tr>
+  <tr><td><code>402 insufficient credits</code></td><td>The account has no credits. An administrator grants them in <b>Users &amp; credits</b>.</td></tr>
+  <tr><td><code>401 invalid API key</code></td><td>Key revoked, expired, or copied incompletely. Create a new one.</td></tr>
+  <tr><td><code>503 billing database unavailable</code></td><td>PostgreSQL is down. The system refuses work rather than running untracked requests. Check <code>health.sh</code>.</td></tr>
+  <tr><td><code>429</code></td><td>Too many requests at once for this demo capacity. Retry shortly.</td></tr>
+  <tr><td>vLLM will not start / out of memory</td><td>Lower <code>ZEHNORA_MAX_MODEL_LEN</code> (e.g. 4096) or <code>ZEHNORA_GPU_MEM_UTIL</code> in <code>server.env</code>, then <code>start.sh</code>.</td></tr>
+  <tr><td>Model gives text instead of using a tool</td><td>Wrong <code>ZEHNORA_TOOL_PARSER</code> for the model. Re-check section 6.4.</td></tr>
+  <tr><td>Tunnel shows “down” in Cloudflare</td><td>University network may block it. Report it; do not attempt to bypass network controls.</td></tr>
+  <tr><td>Desktop: “Model API: unreachable”</td><td>Wrong <code>ZEHNORA_API_BASE</code>, server stopped, or no internet. Test with <code>curl $ZEHNORA_API_BASE/models</code>.</td></tr>
+  <tr><td>Assistant says a command needs approval but no window appears</td><td>The Desktop app is not running (the approval window lives in it). Start it, or use an ordinary build/test command.</td></tr>
+  <tr><td>Port already in use</td><td>The scripts refuse to touch processes they do not own. Stop the other program or change the port in <code>config/demo.env</code>.</td></tr>
+</table>
+
+<h2>10. Reference</h2>
+<h4>Ports (all local unless tunnelled)</h4>
+<table>
+  <tr><th>Port</th><th>Service</th><th>Where</th></tr>
+  <tr><td>5173</td><td>Portal (development)</td><td>Client / dev Mac</td></tr>
+  <tr><td>8200</td><td>Platform API</td><td>Dev Mac / GPU PC (internal)</td></tr>
+  <tr><td>8300</td><td>Edge proxy (public API only)</td><td>Mac, for tunnelling practice</td></tr>
+  <tr><td>4000</td><td>LiteLLM gateway</td><td>Internal only</td></tr>
+  <tr><td>8000</td><td>vLLM + model</td><td>GPU PC, internal only</td></tr>
+  <tr><td>8080</td><td>nginx (behind the tunnel)</td><td>GPU PC</td></tr>
+  <tr><td>3090</td><td>LibreChat (Desktop)</td><td>Client computer</td></tr>
+  <tr><td>27028</td><td>MongoDB (chats)</td><td>Client computer</td></tr>
+  <tr><td>8888</td><td>SearXNG (web search)</td><td>Client computer</td></tr>
+  <tr><td>3099</td><td>Approval bridge</td><td>Client computer</td></tr>
+</table>
+
+<h4>Important files</h4>
+<table>
+  <tr><th>Path</th><th>Contents</th></tr>
+  <tr><td><code>.server-secrets/</code> <span class="platform win">GPU PC</span></td><td>Database passwords, gateway key, tunnel token, <code>server.env</code>. Never committed.</td></tr>
+  <tr><td><code>.local-dev/</code> <span class="platform mac">MAC</span></td><td>Development database, tools, logs and secrets. Never committed.</td></tr>
+  <tr><td><code>zehnora/docs/</code></td><td>STATUS, ARCHITECTURE, API-CONTRACT, CREDITS-AND-RECOVERY, GOOGLE-SETUP, MODEL-EVALUATION, KNOWN-LIMITATIONS, DEMO-SCRIPT.</td></tr>
+  <tr><td><code>zehnora/scripts/</code></td><td><code>mac/</code>, <code>windows/</code> and <code>server/</code> start, stop, health and deployment scripts.</td></tr>
+</table>
+
+<h4>Security summary</h4>
+<ul>
+  <li>Only two public routes exist: <code>GET /v1/models</code> and <code>POST /v1/chat/completions</code>. The gateway, model, databases and desktop tools are never routed publicly.</li>
+  <li>Credits are reserved before generation and settled on actual usage; the ledger cannot be edited or deleted.</li>
+  <li>API keys are stored as one-way fingerprints — a lost key cannot be recovered, only replaced.</li>
+  <li>The Desktop assistant is limited to the chosen workspace folder; other commands need your approval.</li>
+  <li>Web pages fetched by the assistant are treated as untrusted data, and private network addresses are blocked.</li>
+</ul>
+<p class="small">Read <code>zehnora/docs/KNOWN-LIMITATIONS.md</code> for what is not yet implemented or tested, including Windows testing, the Google connector and GPU acceptance tests.</p>
+</div>
+
+</body>
+</html>

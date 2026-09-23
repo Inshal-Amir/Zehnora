@@ -1,0 +1,19 @@
+# SearXNG settings for Zehnora Desktop (client profile). Loopback only, JSON API enabled.
+# The secret key comes from the SEARXNG_SECRET environment variable.
+use_default_settings: true
+general:
+  instance_name: "Zehnora search"
+  enable_metrics: false
+server:
+  bind_address: "127.0.0.1"
+  port: 8888
+  limiter: false
+  image_proxy: false
+  public_instance: false
+search:
+  safe_search: 1
+  formats:
+    - html
+    - json
+ui:
+  static_use_hash: true

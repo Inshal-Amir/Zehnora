@@ -1,0 +1,65 @@
+  # Appended by start-desktop.sh ONLY when a Google OAuth client file exists
+  # ($ZEHNORA_CLIENT_DATA/secrets/google-client-secret.json). Community connector, pinned:
+  # taylorwilsdon/google_workspace_mcp (PyPI workspace-mcp 1.27.1, MIT). Single-user stdio mode:
+  # one connector per desktop user, tokens kept in that user's protected credentials folder.
+  zehnora-google:
+    type: stdio
+    command: '__REPO__/zehnora/connectors/google/.venv/bin/workspace-mcp'
+    args:
+      - '--single-user'
+      - '--tools'
+      - 'gmail'
+      - 'drive'
+      - 'calendar'
+      - 'docs'
+      - 'sheets'
+      - '--tool-tier'
+      - 'extended'
+      - '--disabled-tools'
+      # Sending, sharing and permission changes need a per-action approval UI (not available yet).
+      - 'send_gmail_message'
+      - 'get_drive_shareable_link'
+      - 'manage_drive_access'
+      - 'set_drive_file_permissions'
+      - 'manage_gmail_filter'
+      - 'manage_gmail_label'
+      - 'modify_gmail_message_labels'
+      # Unneeded for the demo; kept out to save model context.
+      - 'list_gmail_filters'
+      - 'list_gmail_labels'
+      - 'get_gmail_attachment_content'
+      - 'get_gmail_messages_content_batch'
+      - 'get_gmail_thread_content'
+      - 'get_drive_file_download_url'
+      - 'copy_drive_file'
+      - 'import_to_google_doc'
+      - 'import_to_google_slides'
+      - 'import_to_google_sheets'
+      - 'manage_out_of_office'
+      - 'manage_focus_time'
+      - 'query_freebusy'
+      - 'create_calendar'
+      - 'search_docs'
+      - 'list_docs_in_folder'
+      - 'find_and_replace_doc'
+      - 'insert_doc_elements'
+      - 'export_doc_to_pdf'
+      - 'update_paragraph_style'
+      - 'get_doc_as_markdown'
+      - 'list_document_comments'
+      - 'manage_document_comment'
+      - 'get_spreadsheet_info'
+      - 'format_sheet_range'
+      - 'list_sheet_tables'
+    env:
+      GOOGLE_CLIENT_SECRET_PATH: '__GOOGLE_CLIENT_SECRET__'
+      WORKSPACE_MCP_CREDENTIALS_DIR: '__GOOGLE_CREDENTIALS_DIR__'
+      WORKSPACE_MCP_PORT: '8765'
+      GOOGLE_OAUTH_REDIRECT_URI: 'http://localhost:8765/oauth2callback'
+      OAUTHLIB_INSECURE_TRANSPORT: '1' # loopback redirect only
+    description: 'Gmail (read, drafts), Drive, Calendar, Docs, Sheets for the connected Google account'
+    startup: true
+    chatMenu: false
+    serverInstructions: false
+    initTimeout: 60000
+    timeout: 120000

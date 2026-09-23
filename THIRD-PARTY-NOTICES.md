@@ -1,8 +1,8 @@
-# Third-party notices (Roshvyn additions)
+# Third-party notices (Zehnora additions)
 
-Roshvyn is built on **LibreChat** (https://github.com/danny-avila/LibreChat, v0.8.7, MIT License, © LibreChat contributors). LibreChat's license and notices at the repository root are kept unchanged. Rebranding does not grant access to any features beyond those in the open-source release.
+Zehnora is built on **LibreChat** (https://github.com/danny-avila/LibreChat, v0.8.7, MIT License, © LibreChat contributors). LibreChat's license and notices at the repository root are kept unchanged. Rebranding does not grant access to any features beyond those in the open-source release.
 
-Roshvyn code under `roshvyn/` uses these third-party components (versions pinned in the lock files):
+Zehnora code under `zehnora/` uses these third-party components (versions pinned in the lock files):
 
 | Component | Use | License |
 |---|---|---|
