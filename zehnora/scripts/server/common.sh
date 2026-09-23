@@ -7,6 +7,7 @@ say() { printf '[%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
 die() { say "ERROR: $*"; exit 1; }
 [ -f "$SECRETS/server.env" ] || die "missing $SECRETS/server.env (copy zehnora/infra/server/server.env.example and fill it in)"
 set -a; . "$SECRETS/server.env"; set +a
+export ZEHNORA_HOST_UID="$(id -u)" ZEHNORA_HOST_GID="$(id -g)"
 ZEHNORA_ENGINE="${ZEHNORA_ENGINE:-llamacpp}"
 case "$ZEHNORA_ENGINE" in llamacpp|vllm) ;; *) die "ZEHNORA_ENGINE must be llamacpp or vllm (got: $ZEHNORA_ENGINE)" ;; esac
 MODEL_PATH="$ZEHNORA_MODEL_DIR/$ZEHNORA_MODEL_SUBDIR${ZEHNORA_MODEL_FILE:+/$ZEHNORA_MODEL_FILE}"

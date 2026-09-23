@@ -10,7 +10,22 @@ say "building images (litellm, platform-api)"; dc build
 say "starting postgres + model ($ZEHNORA_ENGINE; loading can take minutes)"; dc up -d postgres model
 wait_healthy() { local s="$1" i=0; until [ "$(docker inspect -f '{{.State.Health.Status}}' "zehnora-$s-1" 2>/dev/null)" = healthy ]; do
   i=$((i+1)); [ $i -ge 180 ] && die "$s not healthy (dc logs $s)"; sleep 5; done; say "$s healthy"; }
-wait_healthy postgres; wait_healthy model
+wait_healthy postgres
+# Create or update the two application roles/databases from the secret files (idempotent; passwords via stdin only).
+ensure_databases() {
+  { printf '\\set platform_pw %s\n' "'$(cat "$SECRETS/pg_platform_password")'"
+    printf '\\set litellm_pw %s\n' "'$(cat "$SECRETS/pg_litellm_password")'"
+    for r in platform litellm; do cat <<SQL
+SELECT 'CREATE ROLE zehnora_$r LOGIN' WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'zehnora_$r')\\gexec
+ALTER ROLE zehnora_$r WITH LOGIN PASSWORD :'${r}_pw';
+SELECT 'CREATE DATABASE zehnora_$r OWNER zehnora_$r' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'zehnora_$r')\\gexec
+REVOKE ALL ON DATABASE zehnora_$r FROM PUBLIC;
+SQL
+    done; } | docker exec -i zehnora-postgres-1 psql -q -v ON_ERROR_STOP=1 -U postgres -d postgres >/dev/null
+  say "databases zehnora_platform + zehnora_litellm ready"
+}
+ensure_databases
+wait_healthy model
 dc up -d litellm; wait_healthy litellm
 dc up -d platform-api; wait_healthy platform-api
 dc up -d nginx

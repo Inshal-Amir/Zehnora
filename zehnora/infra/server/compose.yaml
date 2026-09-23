@@ -22,13 +22,12 @@ services:
     image: postgres:17.6
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD_FILE: /run/secrets/pg_superuser_password
-      ZEHNORA_PLATFORM_DB_PASSWORD_FILE: /run/secrets/pg_platform_password
-      ZEHNORA_LITELLM_DB_PASSWORD_FILE: /run/secrets/pg_litellm_password
-    secrets: [pg_superuser_password, pg_platform_password, pg_litellm_password]
+      POSTGRES_PASSWORD_FILE: /run/secrets/pg_superuser_password   # read by the entrypoint while still root
+    # The zehnora_platform / zehnora_litellm roles and databases are created and kept in sync with the
+    # secret files by scripts/server/start.sh (init scripts run as the postgres user and cannot read them).
+    secrets: [pg_superuser_password]
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./postgres-init:/docker-entrypoint-initdb.d:ro
     networks: [internal]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
@@ -93,6 +92,8 @@ services:
     image: cloudflare/cloudflared:2026.9.1
     profiles: [tunnel]      # started only after local tests pass: start.sh --with-tunnel
     depends_on: [nginx]
+    # Runs as the host user that owns .server-secrets (mode 600) so it can read the token file.
+    user: "${ZEHNORA_HOST_UID:-1000}:${ZEHNORA_HOST_GID:-1000}"
     command: tunnel --no-autoupdate run --token-file /run/secrets/cloudflared_token
     secrets: [cloudflared_token]
     networks: [edge]

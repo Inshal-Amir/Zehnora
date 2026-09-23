@@ -12,5 +12,5 @@ ENV PATH=/app/.venv/bin:$PATH PRISMA_NODEENV_CACHE_DIR=/app/.prisma-nodeenv PRIS
 RUN prisma generate --schema /app/.venv/lib/python3.12/site-packages/litellm/proxy/schema.prisma && prisma py fetch
 COPY config.llamacpp.yaml config.vllm.yaml config.mock.yaml config.dev-local-4b.yaml litellm-entrypoint.sh ./
 RUN chmod +x litellm-entrypoint.sh && useradd -r -u 10001 litellm && chown -R litellm /app
-USER litellm
+# No USER line: the entrypoint reads the secrets as root, then drops to uid 10001 (litellm) before starting.
 EXPOSE 4000
