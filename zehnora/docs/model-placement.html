@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Zehnora Model Placement</title>
+<style>
+  @page { size: A4; margin: 14mm 14mm 16mm; }
+  :root {
+    --ink: #1d1b29; --muted: #5d5a70; --line: #dcd9e8; --bg-soft: #f6f5fb;
+    --gpu: #2f6fdb; --gpu-soft: #dce8fb; --cpu: #d9822b; --cpu-soft: #fbe9d6;
+    --ssd: #6b6880; --ssd-soft: #ecebf2; --brand: #5b4bdb; --ok: #1f8a5b;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: var(--ink); background: #fff;
+         font-size: 10.2pt; line-height: 1.45; margin: 0; }
+  h1 { font-size: 22pt; margin: 0 0 2mm; color: var(--brand); letter-spacing: -0.3px; }
+  h2 { font-size: 13.5pt; margin: 7mm 0 2.5mm; padding-bottom: 1.5mm; border-bottom: 2px solid var(--line); }
+  h3 { font-size: 11pt; margin: 4mm 0 1.5mm; }
+  p { margin: 0 0 2.5mm; }
+  .sub { color: var(--muted); font-size: 10.5pt; margin-bottom: 5mm; }
+  .page { page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+  table { width: 100%; border-collapse: collapse; margin: 1.5mm 0 3mm; font-size: 9.4pt; }
+  th, td { text-align: left; padding: 1.6mm 2mm; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--bg-soft); font-weight: 600; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.total td { font-weight: 700; border-top: 1.5px solid var(--ink); }
+  .gpu { color: var(--gpu); font-weight: 600; } .cpu { color: var(--cpu); font-weight: 600; } .ssd { color: var(--ssd); font-weight: 600; }
+  .chip { display: inline-block; padding: 0.3mm 2mm; border-radius: 3mm; font-size: 8.4pt; font-weight: 600; }
+  .chip.gpu { background: var(--gpu-soft); } .chip.cpu { background: var(--cpu-soft); } .chip.ssd { background: var(--ssd-soft); }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin: 3mm 0 4mm; }
+  .kpi { border: 1px solid var(--line); border-radius: 2.5mm; padding: 3mm; background: var(--bg-soft); }
+  .kpi b { display: block; font-size: 15pt; line-height: 1.15; }
+  .kpi span { color: var(--muted); font-size: 8.6pt; }
+  .note { background: var(--bg-soft); border-left: 3px solid var(--brand); padding: 2.5mm 3mm; margin: 2.5mm 0; font-size: 9.4pt; }
+  .src { color: var(--muted); font-size: 8.2pt; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+  svg text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+  ul { margin: 0 0 2.5mm 5mm; padding: 0; } li { margin-bottom: 1mm; }
+  .legend { display: flex; gap: 5mm; font-size: 9pt; margin: 1mm 0 2mm; }
+  .legend i { display: inline-block; width: 3.2mm; height: 3.2mm; border-radius: 0.8mm; vertical-align: -0.5mm; margin-right: 1.3mm; }
+</style>
+</head>
+<body>
+
+<!-- PAGE 1 -->
+<div class="page">
+  <h1>Zehnora: where the model runs</h1>
+  <div class="sub">Qwen3.6-35B-A3B on the university GPU PC. Every number in this document is measured on the PC or read from the model file. Measured on 23 September 2026.</div>
+
+  <div class="kpis">
+    <div class="kpi"><b>34.66 B</b><span>parameters in the model (3 B used per token)</span></div>
+    <div class="kpi"><b>12,168 MiB</b><span>of model weights on the <span class="gpu">GPU</span> (57 %)</span></div>
+    <div class="kpi"><b>9,146 MiB</b><span>of model weights in <span class="cpu">RAM, run by the CPU</span> (43 %)</span></div>
+    <div class="kpi"><b>55.4 tok/s</b><span>measured writing speed (833 tok/s reading)</span></div>
+  </div>
+
+  <h2>1. The machine</h2>
+  <table>
+    <tr><th>Component</th><th>Exact value</th><th>Role for the model</th></tr>
+    <tr><td><span class="chip gpu">GPU</span></td><td>NVIDIA GeForce RTX 4070 Ti SUPER, 16,376 MiB VRAM, 285 W power limit, driver 591.86</td><td>Runs every layer's attention, the shared expert, 54 % of the expert weights, the output layer, and holds the conversation memory (KV cache)</td></tr>
+    <tr><td><span class="chip cpu">CPU</span></td><td>AMD Ryzen 7 9700X, 8 cores / 16 threads; llama.cpp uses 8 threads</td><td>Runs the 46 % of expert weights that do not fit on the GPU, plus the token lookup</td></tr>
+    <tr><td><span class="chip cpu">RAM</span></td><td>64 GB in the PC; 30,886 MiB (30.2 GiB) given to WSL/Docker</td><td>Holds the CPU's share of the model (9,146 MiB) and the file cache</td></tr>
+    <tr><td><span class="chip ssd">SSD</span></td><td>1,007 GB disk, 933 GB free; model file 22,360,456,160 bytes</td><td>Stores the model file. It is read into memory once at start-up (about 25 s); the SSD does no work while the model answers</td></tr>
+  </table>
+  <p class="src">Software: llama.cpp server-cuda v0.4.1 in Docker (Windows 11 + WSL2 + Docker Desktop), automatic placement with <code>--fit on</code>, context window 65,536 tokens.</p>
+
+  <h2>2. The model in one paragraph</h2>
+  <p><b>Qwen3.6-35B-A3B</b> is a <b>Mixture-of-Experts (MoE)</b> model. Each of its <b>40 layers</b> contains an attention part and <b>256 small "expert" networks</b>. For every token, a router picks <b>8 of the 256 experts</b> plus <b>1 shared expert</b>, so only about <b>3 billion</b> of the 34.66 billion parameters do work per token. That is why a model this size can run fast on one consumer GPU: the experts that are not needed for a token are never computed.</p>
+  <table>
+    <tr><th>Property</th><th class="n">Value</th><th>Property</th><th class="n">Value</th></tr>
+    <tr><td>Total parameters</td><td class="n">34,660,610,688</td><td>Layers</td><td class="n">40</td></tr>
+    <tr><td>Experts per layer / used per token</td><td class="n">256 / 8 + 1 shared</td><td>Attention type</td><td class="n">10 full + 30 linear (Gated DeltaNet)</td></tr>
+    <tr><td>Hidden size</td><td class="n">2,048</td><td>Attention heads (query / key-value)</td><td class="n">16 / 2, size 256</td></tr>
+    <tr><td>Context the model supports</td><td class="n">262,144 tokens</td><td>Context we run</td><td class="n">65,536 tokens</td></tr>
+    <tr><td>File size</td><td class="n">20.81 GiB</td><td>Average precision</td><td class="n">5.158 bits per weight</td></tr>
+  </table>
+  <p class="src">Source: the GGUF file header (unsloth/Qwen3.6-35B-A3B-GGUF, file UD-Q4_K_XL, revision a483e9e), confirmed by llama.cpp's load log ("model params = 34.66 B", "file size = 20.81 GiB (5.16 BPW)").</p>
+</div>
+
+<!-- PAGE 2 -->
+<div class="page">
+  <h2>3. Where every part of the model lives</h2>
+  <p>At start-up llama.cpp measures free GPU memory and places as much of the model on the GPU as fits, keeping about 1 GiB free as a safety margin. Its own report: <i>"41 layers (20 overflowing), 13,860 MiB used, 1,160 MiB free"</i>. All 40 layers and the output layer are on the GPU. In 20 of those layers the experts do not fully fit, so part of their expert weights stays in RAM and is computed by the CPU.</p>
+
+  <div class="legend"><span><i style="background:var(--gpu)"></i>GPU (VRAM)</span><span><i style="background:var(--cpu)"></i>CPU (RAM)</span></div>
+  <svg viewBox="0 0 720 150" width="100%" role="img" aria-label="Model weights split between GPU and CPU">
+    <text x="0" y="14" font-size="12" font-weight="700">Model weights: 21,314 MiB in total</text>
+    <rect x="0" y="22" width="410" height="34" rx="4" fill="#2f6fdb"/>
+    <rect x="410" y="22" width="310" height="34" rx="4" fill="#d9822b"/>
+    <text x="10" y="44" font-size="12" fill="#fff" font-weight="700">GPU 12,167.74 MiB (57 %)</text>
+    <text x="420" y="44" font-size="12" fill="#fff" font-weight="700">CPU/RAM 9,146 MiB (43 %)</text>
+    <text x="0" y="84" font-size="12" font-weight="700">Routed experts only: 18,760 MiB</text>
+    <rect x="0" y="92" width="389" height="30" rx="4" fill="#2f6fdb" opacity="0.85"/>
+    <rect x="389" y="92" width="331" height="30" rx="4" fill="#d9822b" opacity="0.85"/>
+    <text x="10" y="112" font-size="11.5" fill="#fff" font-weight="600">GPU 10,130 MiB (54 %)</text>
+    <text x="399" y="112" font-size="11.5" fill="#fff" font-weight="600">CPU/RAM 8,631 MiB (46 %)</text>
+    <text x="0" y="142" font-size="10" fill="#5d5a70">All other parts (attention, shared expert, output head, norms: 2,038 MiB) are 100 % on the GPU; only the 515 MiB token table is on the CPU.</text>
+  </svg>
+
+  <table>
+    <tr><th>Part of the model</th><th>What it does</th><th class="n">GPU</th><th class="n">CPU / RAM</th><th>Precision</th></tr>
+    <tr><td>Token embedding table</td><td>Turns each token id into numbers (a table lookup)</td><td class="n">0</td><td class="n cpu">515 MiB</td><td>8.5-bit (Q8_0)</td></tr>
+    <tr><td>Attention (10 full + 30 linear layers)</td><td>Lets each token look at the conversation so far</td><td class="n gpu">all</td><td class="n">0</td><td>8.5-bit (Q8_0)</td></tr>
+    <tr><td>Router</td><td>Chooses the 8 experts for each token</td><td class="n gpu">all</td><td class="n">0</td><td>32-bit (F32)</td></tr>
+    <tr><td>Shared expert</td><td>Runs for every token, next to the 8 chosen experts</td><td class="n gpu">all</td><td class="n">0</td><td>8.5-bit (Q8_0)</td></tr>
+    <tr><td>Routed experts (256 per layer)</td><td>The bulk of the model's knowledge; 8 used per token per layer</td><td class="n gpu">10,130 MiB</td><td class="n cpu">8,631 MiB</td><td>Q4_K 65 %, Q5_K 32 %, Q6_K 3 %</td></tr>
+    <tr><td>Output head</td><td>Turns the final numbers into the next token's probabilities</td><td class="n gpu">all</td><td class="n">0</td><td>8.5-bit (Q8_0)</td></tr>
+    <tr><td>Dense parts together</td><td>Attention + shared expert + output head + norms</td><td class="n gpu">2,038 MiB</td><td class="n">0</td><td></td></tr>
+    <tr class="total"><td>All model weights</td><td></td><td class="n gpu">12,167.74 MiB</td><td class="n cpu">9,146 MiB</td><td>5.158 bits avg</td></tr>
+  </table>
+
+</div>
+
+<!-- PAGE 3 -->
+<div class="page">
+  <h2>3b. Everything else in memory while the model runs</h2>
+  <table>
+    <tr><th>Item</th><th>Purpose</th><th class="n">GPU</th><th class="n">CPU / RAM</th></tr>
+    <tr><td>KV cache (F16, 65,536 tokens, 10 full-attention layers)</td><td>The model's memory of the current conversation</td><td class="n gpu">1,280.00 MiB</td><td class="n">0</td></tr>
+    <tr><td>Linear-attention state (Gated DeltaNet, 40 layers)</td><td>Running summary used by the 30 linear-attention layers</td><td class="n gpu">62.81 MiB</td><td class="n">0</td></tr>
+    <tr><td>Compute buffers</td><td>Scratch space for the calculations</td><td class="n gpu">350.03 MiB</td><td class="n cpu">72.02 MiB</td></tr>
+    <tr class="total"><td>llama.cpp total</td><td></td><td class="n gpu">13,860.6 MiB</td><td class="n cpu">9,218 MiB</td></tr>
+    <tr><td>CUDA driver context</td><td>NVIDIA runtime (difference to nvidia-smi)</td><td class="n">273 MiB</td><td class="n"></td></tr>
+    <tr class="total"><td>GPU memory in use (nvidia-smi)</td><td></td><td class="n gpu">14,134 of 16,376 MiB</td><td class="n"></td></tr>
+  </table>
+  <p class="src">Source: llama.cpp load log at debug level (<code>model-placement.sh</code>): "CUDA0 model buffer size = 12167.74 MiB", "CUDA0 KV buffer size = 1280.00 MiB", "CUDA0 RS buffer size = 62.81 MiB", "CUDA0 compute buffer size = 350.03 MiB", "CUDA_Host compute buffer size = 72.02 MiB", fit result "Host 9,218 = 9,146 model + 72 compute". The expert split is calculated from these: 12,167.74 − 2,038 (dense on GPU) = 10,130 MiB; 9,146 − 515 (token table) = 8,631 MiB.</p>
+
+  <h2>4. What happens for one token</h2>
+  <p>Writing an answer means producing one token at a time. For every token, the work goes through the same path:</p>
+  <svg viewBox="0 0 720 300" width="100%" role="img" aria-label="Processing path for one token across CPU and GPU">
+    <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5d5a70"/></marker></defs>
+    <rect x="0" y="10" width="150" height="56" rx="6" fill="#fbe9d6" stroke="#d9822b"/>
+    <text x="75" y="32" font-size="12" font-weight="700" text-anchor="middle" fill="#8a4a0e">1. Token lookup</text>
+    <text x="75" y="50" font-size="10.5" text-anchor="middle" fill="#8a4a0e">CPU · 515 MiB table</text>
+    <line x1="150" y1="38" x2="190" y2="38" stroke="#5d5a70" stroke-width="1.5" marker-end="url(#a)"/>
+    <rect x="192" y="0" width="400" height="232" rx="8" fill="#f6f5fb" stroke="#dcd9e8"/>
+    <text x="392" y="20" font-size="12" font-weight="700" text-anchor="middle">2. Repeated for each of the 40 layers</text>
+    <rect x="212" y="32" width="360" height="40" rx="6" fill="#dce8fb" stroke="#2f6fdb"/>
+    <text x="392" y="50" font-size="11.5" font-weight="700" text-anchor="middle" fill="#1b4a99">a. Attention (full or linear)</text>
+    <text x="392" y="65" font-size="10" text-anchor="middle" fill="#1b4a99">GPU · reads the KV cache / state in VRAM</text>
+    <rect x="212" y="80" width="360" height="40" rx="6" fill="#dce8fb" stroke="#2f6fdb"/>
+    <text x="392" y="98" font-size="11.5" font-weight="700" text-anchor="middle" fill="#1b4a99">b. Router picks 8 of 256 experts + shared expert</text>
+    <text x="392" y="113" font-size="10" text-anchor="middle" fill="#1b4a99">GPU</text>
+    <rect x="212" y="128" width="175" height="92" rx="6" fill="#dce8fb" stroke="#2f6fdb"/>
+    <text x="300" y="150" font-size="11" font-weight="700" text-anchor="middle" fill="#1b4a99">c. Expert weights</text>
+    <text x="300" y="166" font-size="11" font-weight="700" text-anchor="middle" fill="#1b4a99">on the GPU</text>
+    <text x="300" y="184" font-size="10" text-anchor="middle" fill="#1b4a99">54 % of expert bytes</text>
+    <text x="300" y="199" font-size="10" text-anchor="middle" fill="#1b4a99">computed by the GPU</text>
+    <rect x="397" y="128" width="175" height="92" rx="6" fill="#fbe9d6" stroke="#d9822b"/>
+    <text x="485" y="150" font-size="11" font-weight="700" text-anchor="middle" fill="#8a4a0e">c. Expert weights</text>
+    <text x="485" y="166" font-size="11" font-weight="700" text-anchor="middle" fill="#8a4a0e">in RAM (20 layers)</text>
+    <text x="485" y="184" font-size="10" text-anchor="middle" fill="#8a4a0e">46 % of expert bytes</text>
+    <text x="485" y="199" font-size="10" text-anchor="middle" fill="#8a4a0e">computed by the CPU</text>
+    <line x1="592" y1="116" x2="628" y2="116" stroke="#5d5a70" stroke-width="1.5" marker-end="url(#a)"/>
+    <rect x="630" y="88" width="90" height="56" rx="6" fill="#dce8fb" stroke="#2f6fdb"/>
+    <text x="675" y="110" font-size="11.5" font-weight="700" text-anchor="middle" fill="#1b4a99">3. Output</text>
+    <text x="675" y="127" font-size="10" text-anchor="middle" fill="#1b4a99">GPU</text>
+    <text x="0" y="262" font-size="10.5" fill="#1d1b29">The GPU does the attention, routing, shared expert, output and its share of the experts. In the 20 layers where part</text>
+    <text x="0" y="278" font-size="10.5" fill="#1d1b29">of the experts live in RAM, the CPU computes those experts and hands the result back to the GPU. The SSD is not</text>
+    <text x="0" y="294" font-size="10.5" fill="#1d1b29">involved after start-up: the whole model is already in VRAM + RAM.</text>
+  </svg>
+
+</div>
+
+<!-- PAGE 4 -->
+<div class="page">
+  <h2>5. Measured speed and load</h2>
+  <table>
+    <tr><th>Test (llama.cpp's own timings)</th><th class="n">Speed</th><th class="n">GPU busy (avg / max)</th><th class="n">GPU power (avg / max)</th><th class="n">CPU (model)</th></tr>
+    <tr><td>Write 512 tokens</td><td class="n"><b>55.4 tokens/s</b></td><td class="n">30.4 % / 41 %</td><td class="n">56.7 W / 98.9 W</td><td class="n">706 % (≈ 7 of 8 threads)</td></tr>
+    <tr><td>Read a 9,800-token prompt</td><td class="n"><b>833.4 tokens/s</b></td><td class="n">51.5 % / 72 %</td><td class="n">86.6 W / 115.8 W</td><td class="n">123 %</td></tr>
+    <tr><td>Real chats from the portal (server log)</td><td class="n">52–61 tokens/s</td><td class="n"></td><td class="n"></td><td class="n"></td></tr>
+    <tr><td>Coding answer with thinking (3,013 tokens)</td><td class="n">52.24 tokens/s</td><td class="n"></td><td class="n"></td><td class="n"></td></tr>
+    <tr><td>Idle (model loaded, no request)</td><td class="n">–</td><td class="n">0 %</td><td class="n">4.5 W</td><td class="n">0.04 %</td></tr>
+  </table>
+  <div class="note"><b>What limits the speed.</b> While writing, the CPU is almost fully busy (about 7 of its 8 threads) computing the experts that live in RAM, while the GPU is only about 30 % busy and waits for them. The writing speed is therefore set by the CPU and RAM part, not by the GPU. Reading a long prompt is different: many tokens are processed together, so the GPU does most of the work (833 tokens/s).</div>
+
+  <h2>6. Why this setup</h2>
+  <ul>
+    <li><b>Quality:</b> the model in its original 16-bit form needs about 69 GB (34.66 B × 2 bytes). In this 5.16-bit version it needs 21 GB, which fits in the GPU's 16 GB plus the PC's RAM. A smaller model that fits fully on the GPU would be faster but is generally weaker at coding.</li>
+    <li><b>Speed:</b> because only 3 B parameters work per token, moving 46 % of the experts to RAM still gives 55 tokens/s, faster than people read.</li>
+    <li><b>Headroom:</b> 1,160 MiB of VRAM is kept free on purpose so the GPU never runs out of memory during long conversations.</li>
+  </ul>
+  <p class="src">Benchmarks: <code>zehnora/scripts/server/model-report.sh</code>, GPU and CPU sampled while each test ran. Full records: <code>zehnora/docs/MODEL-EVALUATION.md</code>.</p>
+</div>
+
+</body>
+</html>
