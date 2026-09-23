@@ -4,7 +4,7 @@ Legend: **DONE** = implemented and verified on the stated machine · **IMPLEMENT
 
 Last update: 2026-09-23. Repository https://github.com/Inshal-Amir/Zehnora (branch `main`).
 
-**2026-09-23, GPU PC:** the server profile runs end to end on the university GPU PC (WSL2 + Docker Desktop, RTX 4070 Ti SUPER): PostgreSQL, llama.cpp with Qwen3.6-35B-A3B (UD-Q4_K_XL, 65K context), LiteLLM, platform API and nginx are healthy; `health.sh` passes; a coding request ran at 50.2 tokens/s and a tool call returned the right arguments (details in `MODEL-EVALUATION.md`). Not done yet: domain + Cloudflare tunnel (Gate C), the SDK suite and the Desktop agent against the GPU model, and backups.
+**2026-09-23, GPU PC:** the server profile runs end to end on the university GPU PC (WSL2 + Docker Desktop, RTX 4070 Ti SUPER): PostgreSQL, llama.cpp with Qwen3.6-35B-A3B (UD-Q4_K_XL, 65K context), LiteLLM, platform API and nginx are healthy; `health.sh` passes; a coding request ran at 50.2 tokens/s and a tool call returned the right arguments (details in `MODEL-EVALUATION.md`). Public at https://api.dubg.dev and https://console.dubg.dev through a named Cloudflare tunnel (`/v1/models` without key 401, `/key/generate` 404, console health 200 from outside). Auto-deploy is on: new commits on `main` go live within 5 minutes. Not done yet: Gate C from another network with the SDK suite, the SDK suite and the Desktop agent against the GPU model, and backups.
 
 ## Part A: API platform
 | Item | State | Evidence |
