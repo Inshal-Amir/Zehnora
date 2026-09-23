@@ -2,7 +2,9 @@
 
 Legend: **DONE** = implemented and verified on the stated machine · **IMPLEMENTED** = code/config exists, not yet run where it matters · **BLOCKED** = needs an external prerequisite · **NOT TESTED**
 
-Last update: 2026-09-22, development Mac (Intel i7-9750H, macOS 26.6.2). Repository `~/Desktop/zehnora`, branch `feat/platform` (local only).
+Last update: 2026-09-23. Repository https://github.com/Inshal-Amir/Zehnora (branch `main`).
+
+**2026-09-23, GPU PC:** the server profile runs end to end on the university GPU PC (WSL2 + Docker Desktop, RTX 4070 Ti SUPER): PostgreSQL, llama.cpp with Qwen3.6-35B-A3B (UD-Q4_K_XL, 65K context), LiteLLM, platform API and nginx are healthy; `health.sh` passes; a coding request ran at 50.2 tokens/s and a tool call returned the right arguments (details in `MODEL-EVALUATION.md`). Not done yet: domain + Cloudflare tunnel (Gate C), the SDK suite and the Desktop agent against the GPU model, and backups.
 
 ## Part A: API platform
 | Item | State | Evidence |

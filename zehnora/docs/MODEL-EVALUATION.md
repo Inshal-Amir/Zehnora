@@ -1,6 +1,18 @@
 # Model evaluation
 
-**No GPU evaluation has been run yet.** Gate B/E acceptance happens only on the university GPU PC with the deployed model. The results below are development measurements on the Mac and are labelled as such.
+**First GPU run: 2026-09-23** on the university GPU PC (RTX 4070 Ti SUPER 16 GB, Windows + WSL2 + Docker Desktop). The full Gate B/E suites are still open; the results below are the first end-to-end checks.
+
+## GPU PC results (Qwen3.6-35B-A3B UD-Q4_K_XL, llama.cpp server-cuda-v0.4.1, context 65,536)
+Path: `test-model.sh` → nginx (127.0.0.1:8080) → platform API (key, credits) → LiteLLM → llama.cpp.
+
+| Check | Result |
+|---|---|
+| Model load (22.4 GB GGUF, `--fit on`) | healthy in about 25 s after the container started |
+| VRAM | 14,110–14,134 MiB of 16,376 MiB; remaining experts in system RAM |
+| Coding request, thinking on (`is_valid_ipv4` + 3 pytest tests) | correct code incl. the leading-zero case; 3,013 output tokens (about 9,850 chars of thinking) in 60.1 s = **50.2 tokens/s** |
+| Tool call, thinking off | `get_task_count({"project":"alpha"})`, `finish_reason=tool_calls`, 1.9 s |
+| GPU utilisation during the run | 36 % (decode is limited by expert reads from system RAM) |
+| `health.sh` | all services healthy; `/v1/models` without key 401; `/key/generate` 404; console health 200 |
 
 ## Candidates (GPU PC, one loaded at a time)
 | | **Default** | Earlier baseline (vLLM engine) |
