@@ -1,0 +1,15 @@
+[PASS] customer registered, dashboard shows zero credits 
+[PASS] admin granted 25 credits via UI with reason in immutable history 
+[PASS] customer dashboard shows 25 available credits 
+[PASS] key secret displayed once prefix sk--tc…
+[PASS] key list shows only a masked form sk--tcH…bHCw
+[PASS] API call with portal-created key succeeds HTTP 200
+   upstream: MOCK (development profile)
+[PASS] dashboard shows the settled request and reduced balance available 24.976
+[PASS] playground reply received and stored MOCK reply to: playground e2e hello
+[PASS] playground history persists after reload 
+[PASS] request with revoked key fails with 401 HTTP 401
+[PASS] non-admin is redirected away from admin pages 
+[PASS] no browser console errors 
+
+12/12 checks passed

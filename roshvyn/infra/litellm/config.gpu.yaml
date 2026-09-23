@@ -1,0 +1,13 @@
+# SERVER PROFILE "gpu": roshvyn-coder -> vLLM on the university GPU PC (private network only).
+# vLLM must run with --served-model-name roshvyn-upstream (fixed; LiteLLM only substitutes whole values).
+model_list:
+  - model_name: roshvyn-coder
+    litellm_params:
+      model: hosted_vllm/roshvyn-upstream
+      api_base: os.environ/VLLM_API_BASE
+      api_key: os.environ/VLLM_API_KEY
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+litellm_settings:
+  telemetry: false

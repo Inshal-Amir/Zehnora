@@ -1,0 +1,12 @@
+[PASS] GET /v1/models lists the alias (0.1s) models=['roshvyn-coder']
+[PASS] identify upstream (mock vs model) (0.1s) upstream=MOCK (development only) request_id=4bf38088-8f4e-4c0f-9bac-f396a4821c63
+[PASS] OpenAI SDK: text completion (0.6s) 65 chars, usage 17/11
+[PASS] OpenAI SDK: streaming (0.1s) 11 chunks, finish=stop
+[PASS] OpenAI SDK: automatic tool call + tool-result continuation (0.1s) call id call_mock_ab95…, args {'project': 'mock'}, final mentions 7
+[PASS] OpenAI SDK: streamed tool call assembly (0.1s) args {'project': 'mock'}
+[PASS] LangChain ChatOpenAI.invoke (brief 6.7 example) (0.1s) 65 chars
+[PASS] LangChain ChatOpenAI.stream (0.1s) 12 chunks
+[PASS] LangChain ChatOpenAI.bind_tools (0.0s) tool_calls={'project': 'mock'}
+[PASS] invalid key -> 401 OpenAI-style error with request_id (0.0s) invalid_api_key
+
+10/10 checks passed

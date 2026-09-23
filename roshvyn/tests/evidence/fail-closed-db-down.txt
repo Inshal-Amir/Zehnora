@@ -1,0 +1,4 @@
+status: 503 {"error": {"message": "Billing database unavailable; request not accepted.", "type": "service_unavailable", "code": "billing_unavailable"}, "request_id": "6130dd33-8735-4174-8772-a70a9aa1ddd0"}
+mock calls during outage: 0
+health after restart: {'status': 'ok', 'database': True, 'profile': 'mock'}
+PASS

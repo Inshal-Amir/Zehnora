@@ -1,0 +1,37 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-9.1.1, pluggy-1.6.0 -- /Users/macbookpro/Desktop/roshvyn/roshvyn/platform-api/.venv/bin/python3
+rootdir: /Users/macbookpro/Desktop/roshvyn/roshvyn/platform-api
+configfile: pyproject.toml
+plugins: asyncio-1.4.0, anyio-4.15.1
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 27 items
+
+tests/test_gate_a.py::test_register_starts_as_user_with_zero_credits_and_role_is_not_accepted PASSED [  3%]
+tests/test_gate_a.py::test_two_users_are_isolated PASSED                 [  7%]
+tests/test_gate_a.py::test_ordinary_user_cannot_use_admin_routes PASSED  [ 11%]
+tests/test_gate_a.py::test_admin_grant_persists_with_reason_and_actor PASSED [ 14%]
+tests/test_gate_a.py::test_duplicate_grant_operation_id_rejected PASSED  [ 18%]
+tests/test_gate_a.py::test_ledger_is_append_only PASSED                  [ 22%]
+tests/test_gate_a.py::test_csrf_required_for_cookie_mutations PASSED     [ 25%]
+tests/test_gate_a.py::test_login_throttling PASSED                       [ 29%]
+tests/test_gate_a.py::test_key_shown_once_and_only_prefix_listed PASSED  [ 33%]
+tests/test_gate_a.py::test_zero_credit_request_rejected_before_inference PASSED [ 37%]
+tests/test_gate_a.py::test_invalid_and_revoked_keys PASSED               [ 40%]
+tests/test_gate_a.py::test_expired_key_and_model_restriction PASSED      [ 44%]
+tests/test_gate_a.py::test_disable_account_revokes_keys PASSED           [ 48%]
+tests/test_gate_a.py::test_new_keys_share_the_same_wallet PASSED         [ 51%]
+tests/test_gate_a.py::test_non_stream_charge_matches_actual_usage PASSED [ 55%]
+tests/test_gate_a.py::test_output_limit_validation PASSED                [ 59%]
+tests/test_gate_a.py::test_streaming_settles_and_hides_internal_usage_chunk PASSED [ 62%]
+tests/test_gate_a.py::test_tool_calls_preserved_non_stream_and_stream PASSED [ 66%]
+tests/test_gate_a.py::test_upstream_error_releases_reservation PASSED    [ 70%]
+tests/test_gate_a.py::test_midstream_truncation_is_charged_gateway_reported_delivered_usage PASSED [ 74%]
+tests/test_gate_a.py::test_admin_resolves_pending_request_exactly_once PASSED [ 77%]
+tests/test_gate_a.py::test_client_disconnect_still_settles_from_drained_usage PASSED [ 81%]
+tests/test_gate_a.py::test_shared_wallet_concurrency_admits_only_affordable_work PASSED [ 85%]
+tests/test_gate_a.py::test_duplicate_settlement_and_restart_recovery PASSED [ 88%]
+tests/test_gate_a.py::test_adjustment_cannot_go_below_reservations PASSED [ 92%]
+tests/test_gate_a.py::test_playground_uses_account_wallet_and_persists PASSED [ 96%]
+tests/test_gate_a.py::test_playground_zero_credits_rejected PASSED       [100%]
+
+============================= 27 passed in 16.88s ==============================

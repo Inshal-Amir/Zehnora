@@ -1,0 +1,15 @@
+# DEVELOPMENT PROFILE "dev-local-4b": roshvyn-coder -> Qwen3.5-4B Q4_K_M on the Mac's llama-server (CPU).
+# A development stand-in only. It never certifies the GPU deployment (brief sections 8 and 10).
+model_list:
+  - model_name: roshvyn-coder
+    litellm_params:
+      model: openai/mac-demo-model
+      api_base: http://127.0.0.1:8092/v1
+      api_key: os.environ/LLAMA_API_KEY
+    model_info:
+      roshvyn_deployment_identity: "Qwen/Qwen3.5-4B Q4_K_M GGUF via llama.cpp on Intel Mac CPU (development stand-in)"
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+litellm_settings:
+  telemetry: false
