@@ -47,7 +47,7 @@ def main() -> int:
         page.get_by_label("Email").fill(email)
         page.get_by_label("Password").fill(password)
         page.get_by_role("button", name="Create account").click()
-        expect(page.get_by_role("heading", name="Dashboard")).to_be_visible()
+        expect(page.get_by_role("heading", name="Usage")).to_be_visible()
         expect(page.get_by_text("You have no credits yet")).to_be_visible()
         check("customer registered, dashboard shows zero credits", True)
         page.screenshot(path=str(OUT / "01-dashboard-zero-credits.png"))
@@ -95,7 +95,7 @@ def main() -> int:
         print("   upstream:", "MOCK (development profile)" if is_mock else "non-mock model")
 
         # 5. Usage visible on the dashboard
-        page.get_by_role("link", name="Dashboard").click()
+        page.get_by_role("link", name="Usage").click()
         expect(page.get_by_role("cell", name="settled").first).to_be_visible()
         avail = float(page.locator(".stat .value").first.inner_text().replace(",", ""))
         check("dashboard shows the settled request and reduced balance", avail < 25, f"available {avail}")
@@ -105,11 +105,11 @@ def main() -> int:
         page.get_by_role("link", name="Playground").click()
         page.get_by_placeholder("Message zehnora-coder").fill("playground e2e hello")
         page.get_by_role("button", name="Send").click()
-        reply = page.locator(".msg.assistant .bubble").first
-        expect(reply).not_to_have_text("Thinking…", timeout=120_000)
+        expect(page.locator(".msg.assistant .msg-actions").first).to_be_visible(timeout=120_000)
+        reply = page.locator(".msg.assistant .markdown").first
         check("playground reply received and stored", len(reply.inner_text()) > 0, reply.inner_text()[:60])
         page.reload()
-        expect(page.locator(".msg.assistant .bubble").first).to_be_visible()
+        expect(page.locator(".msg.assistant .markdown").first).to_be_visible()
         check("playground history persists after reload", True)
         page.screenshot(path=str(OUT / "05-playground.png"))
 
@@ -125,7 +125,7 @@ def main() -> int:
 
         # 8. Customer cannot open admin pages
         page.goto(PORTAL + "/admin/users")
-        expect(page.get_by_role("heading", name="Dashboard")).to_be_visible()
+        expect(page.get_by_role("heading", name="Usage")).to_be_visible()
         check("non-admin is redirected away from admin pages", True)
         browser.close()
 

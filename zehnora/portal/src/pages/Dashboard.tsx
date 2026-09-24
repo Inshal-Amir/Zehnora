@@ -24,7 +24,7 @@ export default function Dashboard() {
   const per = wallet?.units_per_credit ?? 1000;
   return (
     <>
-      <header className="page-head"><h1>Dashboard</h1><button onClick={load}>Refresh</button></header>
+      <header className="page-head"><h1>Usage</h1><button onClick={load}>Refresh</button></header>
       <ErrorNote error={error} />
       <section className="stats">
         <div className="stat"><div className="label">Available credits</div><div className="value">{wallet ? credits(wallet.available_units, per) : '—'}</div></div>

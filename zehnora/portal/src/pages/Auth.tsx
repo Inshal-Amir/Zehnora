@@ -30,8 +30,9 @@ export default function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   return (
     <div className="auth">
       <form className="card auth-card" onSubmit={submit}>
-        <h1>{brand.productName}</h1>
-        <p className="muted">{mode === 'login' ? 'Sign in to your developer console' : 'Create a developer account'}</p>
+        <span className="mark">{brand.productName[0]}</span>
+        <h1>{mode === 'login' ? `Welcome back` : `Create your account`}</h1>
+        <p className="muted">{mode === 'login' ? `Sign in to ${brand.productName} Platform` : `Start building with ${brand.productName}`}</p>
         <label>Email<input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
         <label>Password
           <input type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={mode === 'register' ? 10 : undefined}

@@ -284,6 +284,7 @@ class ConversationCreate(BaseModel):
 class MessageCreate(BaseModel):
     content: str = Field(min_length=1, max_length=20000)
     max_tokens: int | None = Field(default=None, ge=1)
+    stream: bool = False
 
 
 async def _own_conversation(db: AsyncSession, user_id, conv_id) -> PlaygroundConversation:
@@ -329,18 +330,39 @@ async def delete_conversation(conv_id: uuid.UUID, p: Principal = Depends(current
     return {"deleted": str(conv_id)}
 
 
+async def _turn_request(db: AsyncSession, conv: PlaygroundConversation, body: MessageCreate) -> tuple[ModelCatalog, dict]:
+    model = await load_model(db, conv.model_alias, None)
+    history = (await db.scalars(select(PlaygroundMessage).where(PlaygroundMessage.conversation_id == conv.id)
+                                .order_by(PlaygroundMessage.created_at))).all()
+    messages = [{"role": m.role, "content": m.content} for m in history] + [{"role": "user", "content": body.content}]
+    req_body = {"model": model.alias, "messages": messages, "stream": body.stream}
+    if body.max_tokens:
+        req_body["max_tokens"] = body.max_tokens
+    return model, req_body
+
+
+async def _save_turn(db: AsyncSession, conv: PlaygroundConversation, content: str, reply: str, rid: str) -> None:
+    sent_at = now()
+    db.add(PlaygroundMessage(conversation_id=conv.id, role="user", content=content, created_at=sent_at))
+    db.add(PlaygroundMessage(conversation_id=conv.id, role="assistant", content=reply, request_id=uuid.UUID(rid),
+                             created_at=sent_at + timedelta(microseconds=1)))
+    if conv.title == "New conversation":
+        conv.title = content[:60]
+    conv.updated_at = now()
+    await db.commit()
+
+
+async def _save_streamed_turn(user_id: uuid.UUID, conv_id: uuid.UUID, content: str, reply: str, rid: str) -> None:
+    async with sessionmaker()() as db:
+        await _save_turn(db, await _own_conversation(db, user_id, conv_id), content, reply, rid)
+
+
 async def _play(user_id: uuid.UUID, conv_id: uuid.UUID, body: MessageCreate, gateway_key: str) -> dict:
     """One playground turn in its own DB session, so it can outlive the HTTP request that started it."""
     async with sessionmaker()() as db:
         user = await db.get(User, user_id)
         conv = await _own_conversation(db, user_id, conv_id)
-        model = await load_model(db, conv.model_alias, None)
-        history = (await db.scalars(select(PlaygroundMessage).where(PlaygroundMessage.conversation_id == conv.id)
-                                    .order_by(PlaygroundMessage.created_at))).all()
-        messages = [{"role": m.role, "content": m.content} for m in history] + [{"role": "user", "content": body.content}]
-        req_body = {"model": model.alias, "messages": messages}
-        if body.max_tokens:
-            req_body["max_tokens"] = body.max_tokens
+        model, req_body = await _turn_request(db, conv, body)
         slot = await acquire_slot()
         try:
             # Same admission/credit pipeline; account comes from the session, not a customer key.
@@ -349,14 +371,7 @@ async def _play(user_id: uuid.UUID, conv_id: uuid.UUID, body: MessageCreate, gat
         finally:
             await slot.__aexit__(None, None, None)
         reply = (data["choices"][0]["message"].get("content") or "").strip()
-        sent_at = now()
-        db.add(PlaygroundMessage(conversation_id=conv.id, role="user", content=body.content, created_at=sent_at))
-        db.add(PlaygroundMessage(conversation_id=conv.id, role="assistant", content=reply, request_id=uuid.UUID(rid),
-                                 created_at=sent_at + timedelta(microseconds=1)))
-        if conv.title == "New conversation":
-            conv.title = body.content[:60]
-        conv.updated_at = now()
-        await db.commit()
+        await _save_turn(db, conv, body.content, reply, rid)
         return {"reply": reply, "request_id": rid, "usage": data.get("usage")}
 
 
@@ -375,13 +390,57 @@ async def _reply_with_keepalive(turn: asyncio.Task, rid: str) -> AsyncIterator[b
     yield json.dumps(body).encode()
 
 
+def _delta_text(line: bytes) -> str:
+    if not line.startswith(b"data: {"):
+        return ""
+    try:
+        choices = json.loads(line[6:]).get("choices") or []
+    except json.JSONDecodeError:
+        return ""
+    return "".join((c.get("delta") or {}).get("content") or "" for c in choices)
+
+
+def _background(coro) -> None:
+    task = asyncio.create_task(coro)
+    _turns.add(task)
+    task.add_done_callback(_turns.discard)
+
+
+async def _relay_stream(inner: AsyncIterator[bytes], slot, user_id: uuid.UUID, conv_id: uuid.UUID, content: str,
+                        rid: str) -> AsyncIterator[bytes]:
+    """Forward the SSE stream unchanged and keep the reply text, so the turn is saved even if the tab closes."""
+    parts: list[str] = []
+    try:
+        async for chunk in inner:
+            parts.append(_delta_text(chunk))
+            yield chunk
+    finally:
+        # Scheduled, not awaited: a disconnected client cancels every await left in this block.
+        reply = "".join(parts).strip()
+        if reply:
+            _background(_save_streamed_turn(user_id, conv_id, content, reply, rid))
+        _background(slot.__aexit__(None, None, None))
+        await inner.aclose()
+
+
 @router.post("/playground/conversations/{conv_id}/messages")
 async def send_message(conv_id: uuid.UUID, body: MessageCreate, request: Request, p: Principal = Depends(current_session),
                        db: AsyncSession = Depends(get_db)):
-    await _own_conversation(db, p.user.id, conv_id)
+    conv = await _own_conversation(db, p.user.id, conv_id)
     gateway_key = get_settings().playground_gateway_key
     if not gateway_key:
         raise ApiError(503, "playground_not_configured", "The playground gateway credential is not configured.")
+    if body.stream:
+        model, req_body = await _turn_request(db, conv, body)
+        slot = await acquire_slot()
+        try:
+            result, rid = await run_completion(user=p.user, model=model, body=req_body, gateway_key=gateway_key,
+                                               source="playground", api_key_id=None, db=db)
+        except BaseException:
+            await slot.__aexit__(None, None, None)
+            raise
+        result.body_iterator = _relay_stream(result.body_iterator, slot, p.user.id, conv_id, body.content, rid)
+        return result
     turn = asyncio.create_task(_play(p.user.id, conv_id, body, gateway_key))
     _turns.add(turn)
     turn.add_done_callback(_turns.discard)

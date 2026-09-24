@@ -43,6 +43,44 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return data as T;
 }
 
+export interface StreamDelta { content?: string; reasoning?: string }
+
+/** POST that answers with Server-Sent Events (OpenAI chat chunks); calls onDelta per chunk. */
+export async function streamPost(path: string, body: unknown, onDelta: (d: StreamDelta) => void, signal?: AbortSignal): Promise<void> {
+  const res = await fetch(`/platform/v1${path}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-csrf-token': csrfToken() },
+    credentials: 'same-origin',
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (!res.ok || !res.body) {
+    const text = await res.text();
+    let err;
+    try { err = JSON.parse(text); } catch { err = null; }
+    throw new ApiError(res.status, err?.error?.code ?? 'error', err?.error?.message ?? `Request failed (${res.status})`, err?.request_id);
+  }
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buffer = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) return;
+    buffer += value;
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) {
+      if (!line.startsWith('data: ') || line === 'data: [DONE]') continue;
+      const chunk = JSON.parse(line.slice(6));
+      if (chunk.error) throw new ApiError(502, chunk.error.code ?? 'stream_error', chunk.error.message ?? 'The stream was interrupted.', chunk.request_id);
+      for (const c of chunk.choices ?? []) {
+        const d = c.delta ?? {};
+        const reasoning = d.reasoning_content ?? d.reasoning;
+        if (d.content || reasoning) onDelta({ content: d.content ?? undefined, reasoning: reasoning ?? undefined });
+      }
+    }
+  }
+}
+
 export const api = {
   get: <T>(p: string) => request<T>('GET', p),
   post: <T>(p: string, b?: unknown) => request<T>('POST', p, b ?? {}),
