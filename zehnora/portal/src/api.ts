@@ -28,8 +28,15 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await res.text();
-  const data = text ? JSON.parse(text) : {};
-  if (!res.ok) {
+  let data;
+  try {
+    data = text.trim() ? JSON.parse(text) : {};
+  } catch {
+    // A proxy (e.g. Cloudflare 502/524) answered with an HTML page instead of the API.
+    throw new ApiError(res.status, 'bad_gateway', `The server did not respond properly (HTTP ${res.status}). Please try again.`);
+  }
+  // Long playground replies send 200 first to keep the connection open; a later failure arrives in the body.
+  if (!res.ok || data?.error) {
     const err = data?.error ?? {};
     throw new ApiError(res.status, err.code ?? 'error', err.message ?? `Request failed (${res.status})`, data?.request_id);
   }

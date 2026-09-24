@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
+import logging
 import uuid
+from collections.abc import AsyncIterator
 from datetime import timedelta
 
 from email_validator import EmailNotValidError, validate_email
 from fastapi import APIRouter, Depends, Request, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
@@ -24,8 +29,8 @@ from .auth import (
 )
 from .billing import current_rate
 from .config import get_settings
-from .db import get_db
-from .errors import ApiError
+from .db import get_db, sessionmaker
+from .errors import ApiError, error_body, request_id_of
 from .inference import acquire_slot, load_model, run_completion
 from .models import (
     ApiKey,
@@ -42,7 +47,11 @@ from .models import (
 )
 from .security import DUMMY_HASH, csrf_for_session, hash_password, key_fingerprint, new_token, sha256_hex, verify_password
 
+log = logging.getLogger("zehnora.platform")
 router = APIRouter(prefix="/platform/v1")
+
+PLAYGROUND_KEEPALIVE_S = 15.0
+_turns: set[asyncio.Task] = set()
 
 
 def normalize_email(raw: str) -> str:
@@ -320,34 +329,63 @@ async def delete_conversation(conv_id: uuid.UUID, p: Principal = Depends(current
     return {"deleted": str(conv_id)}
 
 
+async def _play(user_id: uuid.UUID, conv_id: uuid.UUID, body: MessageCreate, gateway_key: str) -> dict:
+    """One playground turn in its own DB session, so it can outlive the HTTP request that started it."""
+    async with sessionmaker()() as db:
+        user = await db.get(User, user_id)
+        conv = await _own_conversation(db, user_id, conv_id)
+        model = await load_model(db, conv.model_alias, None)
+        history = (await db.scalars(select(PlaygroundMessage).where(PlaygroundMessage.conversation_id == conv.id)
+                                    .order_by(PlaygroundMessage.created_at))).all()
+        messages = [{"role": m.role, "content": m.content} for m in history] + [{"role": "user", "content": body.content}]
+        req_body = {"model": model.alias, "messages": messages}
+        if body.max_tokens:
+            req_body["max_tokens"] = body.max_tokens
+        slot = await acquire_slot()
+        try:
+            # Same admission/credit pipeline; account comes from the session, not a customer key.
+            data, rid = await run_completion(user=user, model=model, body=req_body, gateway_key=gateway_key,
+                                             source="playground", api_key_id=None, db=db)
+        finally:
+            await slot.__aexit__(None, None, None)
+        reply = (data["choices"][0]["message"].get("content") or "").strip()
+        sent_at = now()
+        db.add(PlaygroundMessage(conversation_id=conv.id, role="user", content=body.content, created_at=sent_at))
+        db.add(PlaygroundMessage(conversation_id=conv.id, role="assistant", content=reply, request_id=uuid.UUID(rid),
+                                 created_at=sent_at + timedelta(microseconds=1)))
+        if conv.title == "New conversation":
+            conv.title = body.content[:60]
+        conv.updated_at = now()
+        await db.commit()
+        return {"reply": reply, "request_id": rid, "usage": data.get("usage")}
+
+
+async def _reply_with_keepalive(turn: asyncio.Task, rid: str) -> AsyncIterator[bytes]:
+    """Cloudflare drops a request that sends nothing for 100 s (HTTP 524). Leading whitespace keeps
+    the connection alive and is still valid JSON; errors after the 200 go in the body."""
+    while not (await asyncio.wait({turn}, timeout=PLAYGROUND_KEEPALIVE_S))[0]:
+        yield b" "
+    try:
+        body = turn.result()
+    except ApiError as exc:
+        body = error_body(exc.status, exc.code, exc.message, exc.request_id or rid)
+    except Exception:
+        log.exception("playground turn failed %s", rid)
+        body = error_body(500, "internal_error", "Internal server error.", rid)
+    yield json.dumps(body).encode()
+
+
 @router.post("/playground/conversations/{conv_id}/messages")
-async def send_message(conv_id: uuid.UUID, body: MessageCreate, p: Principal = Depends(current_session),
+async def send_message(conv_id: uuid.UUID, body: MessageCreate, request: Request, p: Principal = Depends(current_session),
                        db: AsyncSession = Depends(get_db)):
-    conv = await _own_conversation(db, p.user.id, conv_id)
+    await _own_conversation(db, p.user.id, conv_id)
     gateway_key = get_settings().playground_gateway_key
     if not gateway_key:
         raise ApiError(503, "playground_not_configured", "The playground gateway credential is not configured.")
-    model = await load_model(db, conv.model_alias, None)
-    history = (await db.scalars(select(PlaygroundMessage).where(PlaygroundMessage.conversation_id == conv.id)
-                                .order_by(PlaygroundMessage.created_at))).all()
-    messages = [{"role": m.role, "content": m.content} for m in history] + [{"role": "user", "content": body.content}]
-    req_body = {"model": model.alias, "messages": messages}
-    if body.max_tokens:
-        req_body["max_tokens"] = body.max_tokens
-    slot = await acquire_slot()
-    try:
-        # Same admission/credit pipeline; account comes from the session, not a customer key.
-        data, rid = await run_completion(user=p.user, model=model, body=req_body, gateway_key=gateway_key,
-                                         source="playground", api_key_id=None, db=db)
-    finally:
-        await slot.__aexit__(None, None, None)
-    reply = (data["choices"][0]["message"].get("content") or "").strip()
-    sent_at = now()
-    db.add(PlaygroundMessage(conversation_id=conv.id, role="user", content=body.content, created_at=sent_at))
-    db.add(PlaygroundMessage(conversation_id=conv.id, role="assistant", content=reply, request_id=uuid.UUID(rid),
-                             created_at=sent_at + timedelta(microseconds=1)))
-    if conv.title == "New conversation":
-        conv.title = body.content[:60]
-    conv.updated_at = now()
-    await db.commit()
-    return {"reply": reply, "request_id": rid, "usage": data.get("usage")}
+    turn = asyncio.create_task(_play(p.user.id, conv_id, body, gateway_key))
+    _turns.add(turn)
+    turn.add_done_callback(_turns.discard)
+    if (await asyncio.wait({turn}, timeout=PLAYGROUND_KEEPALIVE_S))[0]:
+        return turn.result()
+    return StreamingResponse(_reply_with_keepalive(turn, request_id_of(request)), media_type="application/json",
+                             headers={"cache-control": "no-cache", "x-accel-buffering": "no"})
