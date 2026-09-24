@@ -70,8 +70,8 @@ def normalize_request(body: dict, model: ModelCatalog) -> tuple[dict, int]:
     requested = mct if mct is not None else mt
     if requested is None:
         requested = model.default_output_tokens
-    if requested > model.max_output_limit:
-        raise ApiError(400, "max_tokens_too_large", f"Output limit for {model.alias} is {model.max_output_limit} tokens.")
+    # Coding clients (Qwen Code, Cline, ...) send large fixed defaults; cap them instead of refusing.
+    requested = min(requested, model.max_output_limit)
     if body.get("n") not in (None, 1):
         raise ApiError(400, "unsupported_n", "Only n=1 is supported.")
     for forbidden in ("api_base", "base_url", "api_key", "user_api_key", "litellm_params"):

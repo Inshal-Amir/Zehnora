@@ -54,7 +54,7 @@ Every error has this shape plus an `x-request-id` header:
 
 | HTTP | code examples | Meaning |
 |---|---|---|
-| 400 | `conflicting_max_tokens`, `max_tokens_too_large`, `invalid_messages`, `forbidden_parameter` | Invalid request (checked before any reservation) |
+| 400 | `conflicting_max_tokens`, `invalid_messages`, `forbidden_parameter` | Invalid request (checked before any reservation) |
 | 401 | `missing_api_key`, `invalid_api_key` (also revoked), `expired_api_key` | Key problem |
 | 402 | `insufficient_credits` | Not enough available credits for this request's reservation, checked **before** generation |
 | 403 | `account_disabled`, `model_not_permitted`, `gateway_rejected` | Forbidden |
