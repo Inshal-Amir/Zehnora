@@ -6,7 +6,7 @@ Everything Zehnora-specific lives in this folder; LibreChat's upstream layout at
 |---|---|
 | `platform-api/` | FastAPI platform: accounts, keys, credit wallet, `/v1` API, admin (PostgreSQL, Alembic) |
 | `portal/` | Customer/admin console (React + TypeScript + Vite) |
-| `desktop/` | Electron shell around the local LibreChat UI (status bar, approval window) |
+| `desktop/` | Zehnora Desktop: Electron app with Chat and Work modes and its own agent runtime (see `desktop/README.md`) |
 | `connectors/workspace/` | Files, commands, dev servers, page inspection (MCP) |
 | `connectors/search/` | SearXNG search + safe page fetch (MCP) |
 | `connectors/google/` | Pinned Google Workspace MCP connector configuration |

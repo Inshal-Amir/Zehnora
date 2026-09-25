@@ -1,0 +1,21 @@
+PASS window opens with sidebar
+PASS window title
+PASS renderer has no Node access, only the preload API
+PASS contextIsolation on, nodeIntegration off, sandbox on
+PASS model status online
+PASS chat reply streams and renders markdown
+PASS reasoning is shown as a collapsed block
+PASS chat mode sends only chat tools
+PASS chat appears in history
+PASS web search returns live results through the hidden browser
+PASS github search returns repositories
+PASS work mode writes a file in the working folder
+PASS tool card shows the finished write
+PASS working folder chip is shown
+PASS risky command shows an inline approval
+PASS denied command did not run
+PASS model is told about the denial
+PASS approved command runs
+PASS settings dialog opens with policy options
+PASS conversations are saved to disk
+20/20 passed on darwin 2026-09-25T14:23:53.938Z

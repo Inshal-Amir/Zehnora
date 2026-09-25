@@ -1,39 +1,64 @@
 {
   "name": "zehnora-desktop",
-  "productName": "Zehnora Desktop",
+  "productName": "Zehnora",
   "version": "0.1.0",
   "private": true,
-  "description": "Zehnora Desktop: Electron shell around the local LibreChat UI with a workspace connector",
-  "main": "src/main.js",
+  "description": "Zehnora Desktop: Chat and Work agent app connected to the Zehnora model API",
+  "main": "dist/main/index.js",
   "license": "MIT",
   "scripts": {
-    "start": "electron .",
-    "dist:mac": "electron-builder --mac dir",
-    "dist:win": "electron-builder --win dir"
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/build.mjs && electron .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "e2e": "node scripts/build.mjs && node tests/e2e.mjs",
+    "dist:mac": "node scripts/build.mjs && electron-builder --mac",
+    "dist:win": "node scripts/build.mjs && electron-builder --win"
   },
   "devDependencies": {
+    "@types/node": "^24.13.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "dompurify": "^3.4.16",
     "electron": "44.4.3",
     "electron-builder": "26.15.3",
-    "playwright-core": "^1.58.0"
+    "esbuild": "^0.28.2",
+    "highlight.js": "^11.12.0",
+    "marked": "^18.0.14",
+    "playwright-core": "^1.58.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
   },
   "build": {
-    "appId": "app.zehnora.desktop",
-    "productName": "Zehnora Desktop",
+    "appId": "dev.dubg.zehnora",
+    "productName": "Zehnora",
     "files": [
-      "src/**",
+      "dist/**",
       "package.json"
     ],
-    "extraResources": [
-      {
-        "from": "../brand",
-        "to": "brand"
-      }
-    ],
+    "directories": {
+      "output": "release"
+    },
     "mac": {
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "win": {
-      "target": "dir"
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
-  }
+  },
+  "type": "commonjs"
 }

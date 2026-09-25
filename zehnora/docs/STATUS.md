@@ -25,6 +25,8 @@ Last update: 2026-09-23. Repository https://github.com/Inshal-Amir/Zehnora (bran
 | Gate B (real model on GPU), Gate C (public domain) | BLOCKED: GPU PC access, domain/DNS | `docs/GPU-PC-DEPLOYMENT.md` |
 
 ## Part B: Zehnora Desktop
+**2026-09-25:** Desktop rebuilt as its own app (no LibreChat/MongoDB/Python on the client): React UI with **Chat** and **Work** modes, TypeScript agent runtime in the Electron main process, 22 native tools (files, shell, background processes, web/GitHub search, page checks, system info) and inline approvals by risk. Mac: `npm test` **24/24**, `npm run e2e` **20/20** against the mock model (incl. a live DuckDuckGo search and GitHub API search), evidence in `tests/evidence/desktop/`. NOT TESTED yet: against the GPU model (needs a customer key on the Mac), Windows. The LibreChat-based rows below describe the previous desktop profile (scripts in `scripts/mac`, `scripts/windows`, connectors in `connectors/`), kept for reference.
+
 | Item | State | Evidence |
 |---|---|---|
 | LibreChat client profile (Zehnora API as only model endpoint, customer key in service env only), client MongoDB | DONE (Mac) | `infra/client/librechat.yaml.template` |
