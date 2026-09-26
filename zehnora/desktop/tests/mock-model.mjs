@@ -37,8 +37,53 @@ export function scenario(body) {
 
 export async function startMockModel(handler = scenario, { apiKey = 'sk-test-0123456789abcdef' } = {}) {
   const requests = [];
+  const keys = new Set([apiKey]);
+  const accounts = new Map();
+  const json = (res, status, body, headers = {}) => {
+    res.writeHead(status, { 'content-type': 'application/json', ...headers });
+    res.end(JSON.stringify(body));
+  };
+  const platform = (req, res, body) => {
+    const cookie = req.headers.cookie ?? '';
+    const session = /zehnora_session=([^;]+)/.exec(cookie)?.[1];
+    const csrfOk = session && req.headers['x-csrf-token'] === `csrf-${session}`;
+    const start = (email) => {
+      const token = `s${accounts.size}${Date.now()}`;
+      accounts.get(email).sessions.add(token);
+      return json(res, req.url.endsWith('register') ? 201 : 200, { user: { email }, csrf_token: `csrf-${token}` }, {
+        'set-cookie': [`zehnora_session=${token}; HttpOnly; Path=/`, `zehnora_csrf=csrf-${token}; Path=/`],
+      });
+    };
+    const owner = [...accounts.entries()].find(([, a]) => a.sessions.has(session))?.[0];
+    if (req.url === '/platform/v1/auth/register') {
+      if (accounts.has(body.email)) return json(res, 409, { error: { message: 'An account with this email already exists.' } });
+      accounts.set(body.email, { password: body.password, sessions: new Set(), credits: 2000 });
+      return start(body.email);
+    }
+    if (req.url === '/platform/v1/auth/login') {
+      const account = accounts.get(body.email);
+      if (!account || account.password !== body.password) return json(res, 401, { error: { message: 'Email or password is incorrect.' } });
+      return start(body.email);
+    }
+    if (!owner) return json(res, 401, { error: { message: 'Login required.' } });
+    if (req.url === '/platform/v1/keys' && req.method === 'POST') {
+      if (!csrfOk) return json(res, 403, { error: { message: 'Missing or invalid CSRF token.' } });
+      const secret = `sk-mock${Math.random().toString(36).slice(2)}${Date.now()}`;
+      keys.add(secret);
+      return json(res, 201, { secret, key: { name: body.name } });
+    }
+    if (req.url === '/platform/v1/me') return json(res, 200, { user: { email: owner }, wallet: { available_credits: accounts.get(owner).credits } });
+    if (req.url === '/platform/v1/auth/logout') return json(res, 200, { ok: true });
+    return json(res, 404, { error: { message: 'not found' } });
+  };
   const server = http.createServer((req, res) => {
-    if (req.headers.authorization !== `Bearer ${apiKey}`) {
+    if (req.url.startsWith('/platform/v1/')) {
+      let raw = '';
+      req.on('data', (c) => (raw += c));
+      req.on('end', () => platform(req, res, raw ? JSON.parse(raw) : {}));
+      return;
+    }
+    if (!keys.has((req.headers.authorization ?? '').replace(/^Bearer /, ''))) {
       res.writeHead(401, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({ error: { message: 'invalid key' } }));
     }
@@ -74,7 +119,7 @@ export async function startMockModel(handler = scenario, { apiKey = 'sk-test-012
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();
-  return { url: `http://127.0.0.1:${port}/v1`, apiKey, requests, close: () => new Promise((r) => server.close(r)) };
+  return { url: `http://127.0.0.1:${port}/v1`, consoleUrl: `http://127.0.0.1:${port}`, accounts, apiKey, requests, close: () => new Promise((r) => server.close(r)) };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

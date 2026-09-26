@@ -1,7 +1,7 @@
 {
   "name": "zehnora-desktop",
   "productName": "Zehnora",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Zehnora Desktop: Chat and Work agent app connected to the Zehnora model API",
   "main": "dist/main/index.js",
@@ -46,19 +46,32 @@
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ]
     },
     "win": {
       "target": [
-        "nsis"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ]
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    }
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Zehnora-Setup-${version}.${ext}",
+      "createDesktopShortcut": true
+    },
+    "artifactName": "Zehnora-${version}-${os}-${arch}.${ext}"
   },
   "type": "commonjs"
 }

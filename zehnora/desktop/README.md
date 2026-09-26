@@ -2,6 +2,10 @@
 
 Electron app (Mac and Windows) with its own UI and agent runtime, connected to the Zehnora model API (`https://api.dubg.dev/v1`, model `zehnora-coder`). No LibreChat, MongoDB or Python needed on the client.
 
+## Accounts
+
+First launch shows **Create account / Sign in**. The app calls the portal API (`https://console.dubg.dev/platform/v1`: register or login, then `POST /keys` named after the computer) and stores the new key and the session in the OS keychain. Settings shows the account, its credits, and Sign out; "I already have an API key" still allows pasting a key. Tester instructions: `TESTERS.md`.
+
 ## Two modes
 
 | | Chat | Work |
@@ -42,6 +46,6 @@ npm run e2e          # real Electron app against tests/mock-model.mjs (Playwrigh
 npm run dist:mac     # release/*.dmg   (dist:win for the Windows installer, build it on Windows)
 ```
 
-Environment overrides (tests): `ZEHNORA_USER_DATA`, `ZEHNORA_API_BASE`, `ZEHNORA_API_KEY`, `ZEHNORA_MODEL`, `ZEHNORA_GITHUB_TOKEN`.
+Environment overrides (tests): `ZEHNORA_USER_DATA`, `ZEHNORA_API_BASE`, `ZEHNORA_CONSOLE_BASE`, `ZEHNORA_API_KEY`, `ZEHNORA_MODEL`, `ZEHNORA_GITHUB_TOKEN`.
 
 Web search runs SearXNG when an address is set in Settings, otherwise DuckDuckGo and then Bing in a hidden, sandboxed Chromium window (plain HTTP requests get bot-checked).

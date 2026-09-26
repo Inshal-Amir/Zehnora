@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ApprovalRequest, Conversation, ConversationSummary, Message, Mode, ModelStatus, ProcessInfo, Settings, ZehnoraApi } from '../shared/types';
+import type { AccountStatus, ApprovalRequest, Conversation, ConversationSummary, Message, Mode, ModelStatus, ProcessInfo, Settings, ZehnoraApi } from '../shared/types';
 
 declare global {
   interface Window {
@@ -41,6 +41,8 @@ export interface AppState {
   processes: ProcessInfo[];
   settings: Settings | null;
   status: ModelStatus | null;
+  account: AccountStatus | null;
+  signOut(): Promise<void>;
   setMode(mode: Mode): void;
   open(id: string): Promise<void>;
   newChat(mode?: Mode): Promise<void>;
@@ -62,8 +64,14 @@ export function useAppState(): AppState {
   const [processes, setProcesses] = useState<ProcessInfo[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [status, setStatus] = useState<ModelStatus | null>(null);
+  const [account, setAccount] = useState<AccountStatus | null>(null);
 
-  const refreshStatus = useCallback(async () => setStatus(await api().modelStatus()), []);
+  const refreshStatus = useCallback(async () => {
+    const [model, who, current] = await Promise.all([api().modelStatus(), api().accountStatus(), api().getSettings()]);
+    setStatus(model);
+    setAccount(who);
+    setSettings(current);
+  }, []);
 
   useEffect(() => {
     api().listConversations().then(setConversations);
@@ -154,7 +162,12 @@ export function useAppState(): AppState {
     await refreshStatus();
   }, [refreshStatus]);
 
+  const signOut = useCallback(async () => {
+    await api().signOut();
+    await refreshStatus();
+  }, [refreshStatus]);
+
   const visible = useMemo(() => conversations.filter((entry) => entry.mode === mode && entry.title !== 'New chat'), [conversations, mode]);
 
-  return { mode, conversations: visible, active, running, approvals, processes, settings, status, setMode, open, newChat, send, stop, remove, rename, changeWorkDir, saveSettings, refreshStatus };
+  return { mode, conversations: visible, active, running, approvals, processes, settings, status, account, signOut, setMode, open, newChat, send, stop, remove, rename, changeWorkDir, saveSettings, refreshStatus };
 }

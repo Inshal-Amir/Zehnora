@@ -30,7 +30,7 @@ async function withScript(script: MockReply[]): Promise<void> {
 beforeEach(() => {
   workDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'zehnora-work-')));
   events = [];
-  settings = { apiBase: '', model: 'zehnora-coder', hasApiKey: true, hasGithubToken: false, approvalPolicy: 'risky', defaultWorkDir: workDir, searxngUrl: '', contextTokens: 60000, maxOutputTokens: 2048, theme: 'system' };
+  settings = { apiBase: '', consoleBase: '', accountEmail: '', model: 'zehnora-coder', hasApiKey: true, hasGithubToken: false, approvalPolicy: 'risky', defaultWorkDir: workDir, searxngUrl: '', contextTokens: 60000, maxOutputTokens: 2048, theme: 'system' };
 });
 
 afterEach(async () => {
@@ -148,12 +148,12 @@ describe('agent runtime', () => {
     expect(mock.requests[0].messages[0].content).toMatch(/Chat mode/);
   });
 
-  it('explains a missing API key', async () => {
+  it('explains that the app is not connected yet', async () => {
     await withScript([{ content: 'unused' }]);
     const runtime = new Runtime({ settings: () => ({ ...settings, apiBase: mock.url }), apiKey: () => null, save: () => undefined, emit: () => undefined });
     const c = conversation();
     await runtime.send(c, 'hi');
-    expect(assistantSteps(c)[0].error).toMatch(/API key/);
+    expect(assistantSteps(c)[0].error).toMatch(/Sign in or create/);
     expect(mock.requests).toHaveLength(0);
   });
 });

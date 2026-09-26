@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent, ReactElement } from 'react';
-import type { ApprovalPolicy, ModelStatus, Settings as SettingsType, SettingsPatch } from '../../shared/types';
+import type { AccountStatus, ApprovalPolicy, ModelStatus, Settings as SettingsType, SettingsPatch } from '../../shared/types';
 import { Icon } from './Icon';
 import { api } from '../state';
 
@@ -10,9 +10,11 @@ const POLICIES: { value: ApprovalPolicy; title: string; text: string }[] = [
   { value: 'never', title: 'Never ask', text: 'Zehnora acts without asking. Only use this if you trust the task completely.' },
 ];
 
-export function Settings({ settings, status, onSave, onClose }: {
+export function Settings({ settings, status, account, onSignOut, onSave, onClose }: {
   settings: SettingsType;
   status: ModelStatus | null;
+  account: AccountStatus | null;
+  onSignOut(): Promise<void>;
   onSave(patch: SettingsPatch): Promise<void>;
   onClose(): void;
 }): ReactElement {
@@ -64,6 +66,18 @@ export function Settings({ settings, status, onSave, onClose }: {
           </button>
         </div>
         <div className="dialog-body">
+          {account?.email && (
+            <section>
+              <h3>Account</h3>
+              <div className="account-row">
+                <div>
+                  <div className="account-email">{account.email}</div>
+                  <div className="field-note">{account.credits === null ? 'Credits: sign in again to see your balance' : `Credits available: ${account.credits.toLocaleString(undefined, { maximumFractionDigits: 1 })}`}</div>
+                </div>
+                <button type="button" className="btn" onClick={async () => { await onSignOut(); onClose(); }}>Sign out</button>
+              </div>
+            </section>
+          )}
           <section>
             <h3>Model</h3>
             <label>

@@ -8,6 +8,7 @@ import { configureBackups } from './tools/files';
 import { protectPaths } from './tools/policy';
 import { Runtime } from './agent/runtime';
 import { checkModel } from './llm';
+import * as account from './account';
 import * as store from './store';
 
 if (process.env.ZEHNORA_USER_DATA) app.setPath('userData', process.env.ZEHNORA_USER_DATA);
@@ -68,10 +69,11 @@ async function chooseDirectory(current?: string): Promise<string | null> {
 async function modelStatus(): Promise<ModelStatus> {
   const { apiBase, model } = getSettings();
   const key = readSecret('api-key');
-  if (!key) return { state: 'no-key', detail: 'Add your API key in Settings' };
+  if (!key) return { state: 'no-key', detail: 'Sign in to connect' };
   const { status, models } = await checkModel(apiBase, key);
   if (status === 200) return { state: 'online', detail: models.includes(model) ? model : `${model} not listed (${models.join(', ') || 'no models'})` };
   if (status === 401 || status === 403) return { state: 'unauthorized', detail: 'The API key was rejected' };
+  if (status === 530 || status === 502 || status === 503) return { state: 'offline', detail: 'The Zehnora server is offline right now' };
   return { state: 'offline', detail: status ? `HTTP ${status}` : 'Cannot reach the model API' };
 }
 
@@ -122,6 +124,9 @@ function registerIpc(): void {
   });
   handle('dialog:directory', (current?: string) => chooseDirectory(current));
   handle('model:status', () => modelStatus());
+  handle('account:connect', (email: string, password: string, create: boolean) => account.connect(email, password, create));
+  handle('account:status', () => account.status());
+  handle('account:sign-out', () => account.signOut());
   handle('processes:list', () => listProcesses());
   handle('processes:stop', (id: string) => {
     stopProcess(id);

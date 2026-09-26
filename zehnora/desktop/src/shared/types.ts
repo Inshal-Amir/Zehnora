@@ -59,6 +59,8 @@ export interface Conversation extends ConversationSummary {
 
 export interface Settings {
   apiBase: string;
+  consoleBase: string;
+  accountEmail: string;
   model: string;
   hasApiKey: boolean;
   hasGithubToken: boolean;
@@ -87,6 +89,11 @@ export interface ApprovalRequest {
 }
 
 export type ApprovalDecision = 'once' | 'always' | 'deny';
+
+export interface AccountStatus {
+  email: string | null;
+  credits: number | null;
+}
 
 export interface ModelStatus {
   state: 'online' | 'offline' | 'unauthorized' | 'no-key';
@@ -126,6 +133,9 @@ export interface ZehnoraApi {
   saveSettings(patch: SettingsPatch): Promise<Settings>;
   chooseDirectory(current?: string): Promise<string | null>;
   modelStatus(): Promise<ModelStatus>;
+  connectAccount(email: string, password: string, create: boolean): Promise<AccountStatus>;
+  accountStatus(): Promise<AccountStatus>;
+  signOut(): Promise<void>;
   listProcesses(): Promise<ProcessInfo[]>;
   stopProcess(id: string): Promise<void>;
   openExternal(url: string): Promise<void>;

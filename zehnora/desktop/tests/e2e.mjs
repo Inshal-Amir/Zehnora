@@ -25,7 +25,7 @@ const app = await electron.launch({
   args: ['.'],
   cwd: desktop,
   timeout: 60_000,
-  env: { ...process.env, ZEHNORA_USER_DATA: userData, ZEHNORA_API_BASE: mock.url, ZEHNORA_API_KEY: mock.apiKey },
+  env: { ...process.env, ZEHNORA_USER_DATA: userData, ZEHNORA_API_BASE: mock.url, ZEHNORA_CONSOLE_BASE: mock.consoleUrl },
 });
 app.process().stdout.on('data', (d) => process.stdout.write(`  [main] ${d}`));
 app.process().stderr.on('data', (d) => process.stdout.write(`  [main:err] ${d}`));
@@ -47,6 +47,21 @@ try {
   const prefs = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map((w) => w.webContents.getLastWebPreferences()));
   check('contextIsolation on, nodeIntegration off, sandbox on', prefs.every((p) => p.contextIsolation && !p.nodeIntegration && p.sandbox));
 
+  // First launch: no key yet, so the app asks to sign in or create an account.
+  await page.waitForSelector('.onboard', { timeout: 15_000 });
+  check('first launch shows the account screen, no composer', (await page.locator('textarea').count()) === 0);
+  await page.screenshot({ path: path.join(evidence, '00-onboarding.png') });
+  await page.click('.onboard [role=tab]:has-text("Sign in")');
+  await page.fill('.onboard input[type=email]', 'tester@example.com');
+  await page.fill('.onboard input[type=password]', 'wrong-password-1');
+  await page.click('.onboard button[type=submit]');
+  await page.waitForSelector('.onboard .step-error');
+  check('unknown account shows the server error', /incorrect/.test(await page.innerText('.onboard .step-error')));
+  await page.click('.onboard [role=tab]:has-text("Create account")');
+  await page.fill('.onboard input[type=password]', 'tester-password-1');
+  await page.click('.onboard button[type=submit]');
+  await page.waitForSelector('textarea', { timeout: 15_000 });
+  check('creating an account connects the app (key created and stored)', mock.accounts.has('tester@example.com') && fs.existsSync(path.join(userData, 'secrets', 'api-key.bin')));
   await page.waitForSelector('.status .dot.online', { timeout: 15_000 });
   check('model status online', true, await page.innerText('.status'));
 
@@ -117,6 +132,8 @@ try {
   await page.waitForSelector('.dialog');
   await page.screenshot({ path: path.join(evidence, '07-settings.png') });
   check('settings dialog opens with policy options', (await page.locator('.policy-option').count()) === 3);
+  const accountText = await page.innerText('.account-row');
+  check('settings show the account and its credits', /tester@example.com/.test(accountText) && /2,?000/.test(accountText), accountText.replace(/\n/g, ' | '));
   await page.keyboard.press('Escape');
 
   await page.emulateMedia({ colorScheme: 'dark' });

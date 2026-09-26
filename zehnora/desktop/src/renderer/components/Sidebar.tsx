@@ -17,7 +17,7 @@ function groupByAge(list: ConversationSummary[]): [string, ConversationSummary[]
   return [...groups.entries()];
 }
 
-const STATUS_TEXT: Record<ModelStatus['state'], string> = { online: 'Model online', offline: 'Model offline', unauthorized: 'Key rejected', 'no-key': 'No API key' };
+const STATUS_TEXT: Record<ModelStatus['state'], string> = { online: 'Model online', offline: 'Model offline', unauthorized: 'Key rejected', 'no-key': 'Not signed in' };
 
 function Row({ entry, active, running, onOpen, onDelete, onRename }: {
   entry: ConversationSummary;

@@ -4,6 +4,7 @@ import type { ProcessInfo } from '../shared/types';
 import { Composer } from './components/Composer';
 import { Settings } from './components/Settings';
 import { Sidebar } from './components/Sidebar';
+import { Onboarding } from './components/Onboarding';
 import { Welcome } from './components/Welcome';
 import { Thread } from './components/Thread';
 import { Icon } from './components/Icon';
@@ -48,6 +49,7 @@ export function App(): ReactElement {
   const hasMessages = Boolean(active?.messages.length);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const workDir = active?.cwd ?? state.settings?.defaultWorkDir;
+  const needsAccount = state.settings !== null && !state.settings.hasApiKey;
 
   return (
     <div className={`app mac-${api().platform === 'darwin'}`}>
@@ -77,16 +79,18 @@ export function App(): ReactElement {
             )}
           </div>
         </header>
-        {state.status?.state === 'no-key' && (
-          <div className="banner">
-            Add your Zehnora API key to start.
-            <button type="button" className="btn small primary" onClick={() => setSettingsOpen(true)}>Open settings</button>
-          </div>
+        {state.status?.state === 'offline' && state.settings?.hasApiKey && <div className="banner">{state.status.detail}. Messages will fail until it is back.</div>}
+        {state.account?.credits !== null && state.account?.credits !== undefined && state.account.credits <= 0 && <div className="banner">Your account has no credits left. Ask the Zehnora admin to add credits.</div>}
+        {needsAccount ? (
+          <Onboarding status={state.status} onConnected={state.refreshStatus} onUseKey={() => setSettingsOpen(true)} />
+        ) : hasMessages && active ? (
+          <Thread messages={active.messages} approvals={state.approvals} />
+        ) : (
+          <Welcome mode={mode} onPick={(text) => setSeed({ text, nonce: Date.now() })} />
         )}
-        {hasMessages && active ? <Thread messages={active.messages} approvals={state.approvals} /> : <Welcome mode={mode} onPick={(text) => setSeed({ text, nonce: Date.now() })} />}
-        <Composer mode={mode} running={running} disabled={false} onSend={state.send} onStop={state.stop} seed={seed} />
+        {!needsAccount && <Composer mode={mode} running={running} disabled={false} onSend={state.send} onStop={state.stop} seed={seed} />}
       </main>
-      {settingsOpen && state.settings && <Settings settings={state.settings} status={state.status} onSave={state.saveSettings} onClose={closeSettings} />}
+      {settingsOpen && state.settings && <Settings settings={state.settings} status={state.status} account={state.account} onSignOut={state.signOut} onSave={state.saveSettings} onClose={closeSettings} />}
     </div>
   );
 }

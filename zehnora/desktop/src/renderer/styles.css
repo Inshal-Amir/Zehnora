@@ -275,3 +275,16 @@ code, pre { font-family: var(--mono); }
 .hljs-comment, .hljs-quote { color: var(--hl-comment); font-style: italic; }
 .hljs-name, .hljs-selector-id, .hljs-selector-class, .hljs-attribute, .hljs-bullet, .hljs-addition { color: var(--hl-attr); }
 .hljs-deletion { color: var(--bad); }
+
+/* Onboarding and account */
+.onboard { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 12px; text-align: left; }
+.onboard label { display: flex; flex-direction: column; gap: 5px; font-size: 13px; font-weight: 550; color: var(--text-2); }
+.onboard input { height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--bg); outline: none; font-size: 15px; color: var(--text); }
+.onboard input:focus { border-color: var(--brand); }
+.segmented.wide { display: grid; grid-template-columns: 1fr 1fr; }
+.btn.big { height: 42px; font-size: 15px; }
+.link { color: var(--text-3); font-size: 13px; text-decoration: underline; align-self: center; }
+.link:hover { color: var(--text); }
+.account-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.account-email { font-weight: 600; }
+.account-row .field-note { margin: 2px 0 0; }

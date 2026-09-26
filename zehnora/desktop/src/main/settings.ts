@@ -5,10 +5,12 @@ import { app, safeStorage } from 'electron';
 import type { Settings, SettingsPatch } from '../shared/types';
 
 type StoredSettings = Omit<Settings, 'hasApiKey' | 'hasGithubToken'>;
-type SecretName = 'api-key' | 'github-token';
+type SecretName = 'api-key' | 'github-token' | 'session';
 
 const DEFAULTS: StoredSettings = {
   apiBase: process.env.ZEHNORA_API_BASE ?? 'https://api.dubg.dev/v1',
+  consoleBase: process.env.ZEHNORA_CONSOLE_BASE ?? 'https://console.dubg.dev',
+  accountEmail: '',
   model: process.env.ZEHNORA_MODEL ?? 'zehnora-coder',
   approvalPolicy: 'risky',
   defaultWorkDir: path.join(os.homedir(), 'Zehnora'),
@@ -21,6 +23,7 @@ const DEFAULTS: StoredSettings = {
 const ENV_SECRETS: Record<SecretName, string | undefined> = {
   'api-key': process.env.ZEHNORA_API_KEY,
   'github-token': process.env.ZEHNORA_GITHUB_TOKEN,
+  session: undefined,
 };
 
 const settingsFile = (): string => path.join(app.getPath('userData'), 'settings.json');
@@ -50,7 +53,7 @@ export function readSecret(name: SecretName): string | null {
   }
 }
 
-function writeSecret(name: SecretName, value: string): void {
+export function writeSecret(name: SecretName, value: string): void {
   const file = secretFile(name);
   if (!value) {
     fs.rmSync(file, { force: true });
@@ -77,6 +80,7 @@ export function saveSettings(patch: SettingsPatch): Settings {
   if (githubToken !== undefined) writeSecret('github-token', githubToken.trim());
   const next: StoredSettings = { ...load(), ...rest };
   next.apiBase = next.apiBase.trim().replace(/\/+$/, '');
+  next.consoleBase = next.consoleBase.trim().replace(/\/+$/, '');
   next.contextTokens = clampInt(next.contextTokens, 8000, 1_000_000);
   next.maxOutputTokens = clampInt(next.maxOutputTokens, 256, 131_072);
   fs.mkdirSync(path.dirname(settingsFile()), { recursive: true });

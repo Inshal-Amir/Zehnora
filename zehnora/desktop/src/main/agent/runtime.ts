@@ -40,8 +40,9 @@ function parseArgs(raw: string): Args {
 function describeError(error: Error): string {
   if (error instanceof ApiError) {
     if (error.status === 401) return 'The Zehnora API rejected the key (401). Check the API key in Settings.';
-    if (error.status === 402) return 'Not enough credits on this API key (402). Ask the administrator for credits.';
+    if (error.status === 402) return 'Your account is out of credits (402). Ask the Zehnora admin to add credits.';
     if (error.status === 429) return 'The model server is busy (429). Try again in a moment.';
+    if (error.status === 530 || error.status === 502 || error.status === 503) return 'The Zehnora server is offline right now. Try again later.';
     return `Model API error: ${error.message}`;
   }
   if (error.name === 'AbortError') return 'Stopped.';
@@ -131,7 +132,7 @@ export class Runtime {
       conversation.messages.push(message);
       this.emitMessage(conversation, message, true);
       if (!apiKey) {
-        this.finishWithError(conversation, message, 'No API key yet. Open Settings and paste your Zehnora API key (create one at console.dubg.dev).');
+        this.finishWithError(conversation, message, 'Not connected yet. Sign in or create a Zehnora account to start.');
         return;
       }
 
